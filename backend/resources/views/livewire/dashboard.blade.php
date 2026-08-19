@@ -1,70 +1,35 @@
-<div>
-    <header class="mb-8 flex items-center justify-between">
-        <div>
-            <p class="text-sm uppercase tracking-[0.2em] text-cyan-300">Dashboard</p>
-            <h1 class="mt-2 text-3xl font-black text-white">ISP performance overview</h1>
-        </div>
-        <div class="flex items-center gap-4">
-            <span class="text-sm text-slate-400">{{ auth()->user()->name ?? 'Administrator' }}</span>
-            <div class="rounded-xl border border-slate-700 bg-slate-900 px-4 py-2 text-sm text-slate-200">
-                Last sync: 2 minutes ago
-            </div>
-        </div>
+<div class="space-y-6">
+    <header class="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+        <div><p class="text-xs font-bold uppercase tracking-[0.16em] text-teal-300">{{ $isSaasView ? 'Platform control' : 'Operations overview' }}</p><h1 class="mt-2 text-2xl font-black text-white sm:text-3xl">{{ $workspaceName }}</h1><p class="mt-2 text-sm text-slate-500">{{ $isSaasView ? 'Manage tenants, access, and accountable platform activity.' : 'Live billing, customer, and network activity.' }}</p></div>
+        <div class="flex items-center gap-2 text-xs text-slate-500"><span class="h-2 w-2 rounded-full bg-emerald-400"></span>Updated {{ now()->format('M d, H:i') }}</div>
     </header>
 
-    <section class="grid gap-5 md:grid-cols-2 xl:grid-cols-4">
-        <div class="rounded-2xl border border-slate-800 bg-slate-900 p-5">
-            <p class="text-sm text-slate-400">Active tenants</p>
-            <p class="mt-3 text-3xl font-black text-white">{{ $metrics['tenants'] }}</p>
-            <p class="mt-2 text-xs text-emerald-400">+12% vs last month</p>
-        </div>
-        <div class="rounded-2xl border border-slate-800 bg-slate-900 p-5">
-            <p class="text-sm text-slate-400">Customers</p>
-            <p class="mt-3 text-3xl font-black text-white">{{ number_format($metrics['customers']) }}</p>
-            <p class="mt-2 text-xs text-cyan-400">+384 new this week</p>
-        </div>
-        <div class="rounded-2xl border border-slate-800 bg-slate-900 p-5">
-            <p class="text-sm text-slate-400">Monthly revenue</p>
-            <p class="mt-3 text-3xl font-black text-white">৳{{ number_format($metrics['monthly_revenue']) }}</p>
-            <p class="mt-2 text-xs text-violet-400">Cash collection steady</p>
-        </div>
-        <div class="rounded-2xl border border-slate-800 bg-slate-900 p-5">
-            <p class="text-sm text-slate-400">SMS usage</p>
-            <p class="mt-3 text-3xl font-black text-white">{{ number_format($metrics['sms_usage']) }}</p>
-            <p class="mt-2 text-xs text-amber-400">Low stock alerts</p>
-        </div>
+    <section class="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        @if($isSaasView)
+            <div class="bc-panel p-5" style="border-radius: 8px"><p class="text-xs font-bold uppercase text-slate-500">Active tenants</p><p class="mt-4 text-3xl font-black text-white">{{ number_format($metrics['tenants']) }}</p><p class="mt-3 text-sm text-amber-300">{{ $metrics['trial_tenants'] }} trial · {{ $metrics['suspended_tenants'] }} suspended</p></div>
+            <div class="bc-panel p-5" style="border-radius: 8px"><p class="text-xs font-bold uppercase text-slate-500">SaaS MRR</p><p class="mt-4 text-3xl font-black text-white">৳{{ number_format($metrics['saas_mrr'], 2) }}</p><p class="mt-3 text-sm text-teal-300">৳{{ number_format($metrics['saas_arr'], 2) }} ARR</p></div>
+        @endif
+        <div class="bc-panel p-5" style="border-radius: 8px"><p class="text-xs font-bold uppercase text-slate-500">Customers</p><p class="mt-4 text-3xl font-black text-white">{{ number_format($metrics['customers']) }}</p><p class="mt-3 text-sm text-emerald-300">{{ $metrics['active_services'] }}% active</p></div>
+        @if($isSaasView)
+            <div class="bc-panel p-5" style="border-radius: 8px"><p class="text-xs font-bold uppercase text-slate-500">Expiring soon</p><p class="mt-4 text-3xl font-black text-white">{{ number_format($metrics['subscriptions_expiring']) }}</p><p class="mt-3 text-sm text-slate-500">Next 30 days</p></div>
+            <div class="bc-panel p-5" style="border-radius: 8px"><p class="text-xs font-bold uppercase text-slate-500">SaaS collected</p><p class="mt-4 text-3xl font-black text-white">৳{{ number_format($metrics['saas_collected_this_month'], 2) }}</p><p class="mt-3 text-sm text-slate-500">This month</p></div>
+            <div class="bc-panel p-5" style="border-radius: 8px"><p class="text-xs font-bold uppercase text-slate-500">SaaS outstanding</p><p class="mt-4 text-3xl font-black text-white">৳{{ number_format($metrics['saas_outstanding'], 2) }}</p><p class="mt-3 text-sm text-amber-300">{{ $metrics['saas_overdue_count'] }} overdue</p></div>
+        @else
+            <div class="bc-panel p-5" style="border-radius: 8px"><p class="text-xs font-bold uppercase text-slate-500">Collected this month</p><p class="mt-4 text-3xl font-black text-white">৳{{ number_format($metrics['monthly_revenue'], 2) }}</p><p class="mt-3 text-sm text-slate-500">Successful payments</p></div>
+        @endif
+        @unless($isSaasView)<div class="bc-panel p-5" style="border-radius: 8px"><p class="text-xs font-bold uppercase text-slate-500">Open invoices</p><p class="mt-4 text-3xl font-black text-white">{{ number_format($metrics['pending_billing']) }}</p><p class="mt-3 text-sm text-amber-300">৳{{ number_format($metrics['outstanding'], 2) }} billed</p></div>@endunless
+        @unless($isSaasView)<div class="bc-panel p-5" style="border-radius: 8px"><p class="text-xs font-bold uppercase text-slate-500">Online devices</p><p class="mt-4 text-3xl font-black text-white">{{ $metrics['online_devices'] }}</p><p class="mt-3 text-sm text-teal-300">Network inventory</p></div>@endunless
     </section>
 
-    <section class="mt-8 grid gap-6 xl:grid-cols-[1.3fr_0.7fr]">
-        <div class="rounded-3xl border border-slate-800 bg-slate-900 p-6">
-            <div class="mb-5 flex items-center justify-between">
-                <h2 class="text-xl font-bold text-white">Operational snapshot</h2>
-                <span class="rounded-full bg-emerald-500/15 px-2.5 py-1 text-xs font-semibold text-emerald-300">Healthy</span>
-            </div>
-            <div class="space-y-4">
-                <div>
-                    <div class="mb-2 flex items-center justify-between text-sm text-slate-300"><span>Active services</span><span>{{ $metrics['active_services'] }}%</span></div>
-                    <div class="h-2.5 rounded-full bg-slate-800"><div class="h-2.5 rounded-full bg-cyan-400" style="width: 96%"></div></div>
-                </div>
-                <div>
-                    <div class="mb-2 flex items-center justify-between text-sm text-slate-300"><span>Pending billing</span><span>{{ $metrics['pending_billing'] }}</span></div>
-                    <div class="h-2.5 rounded-full bg-slate-800"><div class="h-2.5 rounded-full bg-violet-400" style="width: 35%"></div></div>
-                </div>
-                <div>
-                    <div class="mb-2 flex items-center justify-between text-sm text-slate-300"><span>Network uptime</span><span>99.8%</span></div>
-                    <div class="h-2.5 rounded-full bg-slate-800"><div class="h-2.5 rounded-full bg-emerald-400" style="width: 99.8%"></div></div>
-                </div>
-            </div>
-        </div>
-
-        <div class="rounded-3xl border border-slate-800 bg-slate-900 p-6">
-            <h2 class="text-xl font-bold text-white">Quick actions</h2>
-            <div class="mt-5 space-y-3">
-                <button class="w-full rounded-xl bg-cyan-500 px-4 py-3 font-semibold text-slate-950 hover:bg-cyan-400 transition">Create customer</button>
-                <button class="w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 font-semibold text-white hover:border-slate-500 transition">Generate invoice</button>
-                <button class="w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 font-semibold text-white hover:border-slate-500 transition">Run network sync</button>
-                <button class="w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 font-semibold text-white hover:border-slate-500 transition">Send payment reminder</button>
-            </div>
-        </div>
+    @if($isSaasView)
+    <section class="grid gap-5 xl:grid-cols-[0.8fr_1.2fr]">
+        <div class="bc-panel p-5 sm:p-6" style="border-radius: 8px"><h2 class="font-bold text-white">Platform controls</h2><div class="mt-5 space-y-2"><a href="{{ route('tenants') }}" class="flex items-center justify-between border border-white/10 p-4 hover:border-teal-300/30 hover:bg-teal-300/5" style="border-radius: 6px"><span><span class="block font-bold text-white">Tenant portfolio</span><span class="mt-1 block text-xs text-slate-500">Provision, suspend, edit, or enter a workspace</span></span><span class="text-teal-300">→</span></a><a href="{{ route('saas-plans') }}" class="flex items-center justify-between border border-white/10 p-4 hover:border-teal-300/30 hover:bg-teal-300/5" style="border-radius: 6px"><span><span class="block font-bold text-white">SaaS plans</span><span class="mt-1 block text-xs text-slate-500">Manage pricing, trials, limits, and grace</span></span><span class="text-teal-300">→</span></a><a href="{{ route('platform-users') }}" class="flex items-center justify-between border border-white/10 p-4 hover:border-teal-300/30 hover:bg-teal-300/5" style="border-radius: 6px"><span><span class="block font-bold text-white">Users and roles</span><span class="mt-1 block text-xs text-slate-500">Control platform and tenant access</span></span><span class="text-teal-300">→</span></a><a href="{{ route('audit-activity') }}" class="flex items-center justify-between border border-white/10 p-4 hover:border-teal-300/30 hover:bg-teal-300/5" style="border-radius: 6px"><span><span class="block font-bold text-white">Audit activity</span><span class="mt-1 block text-xs text-slate-500">Review accountable actions across tenants</span></span><span class="text-teal-300">→</span></a></div></div>
+        <div class="bc-panel p-5 sm:p-6" style="border-radius: 8px"><div class="mb-5 flex items-center justify-between"><h2 class="font-bold text-white">Recent platform activity</h2><a href="{{ route('audit-activity') }}" class="text-sm font-semibold text-teal-300">View audit log</a></div><div>@forelse($recentAuditActivity as $log)<div class="flex items-center justify-between gap-4 border-b border-white/5 py-3 last:border-0"><div class="min-w-0"><div class="truncate text-sm font-semibold text-white">{{ str_replace('.', ' · ', $log->action) }}</div><div class="mt-1 truncate text-xs text-slate-600">{{ $log->user?->name ?? 'System' }} · {{ $log->tenant?->name ?? 'Platform' }}</div></div><time class="shrink-0 text-xs text-slate-600">{{ $log->created_at->diffForHumans() }}</time></div>@empty<p class="py-10 text-center text-sm text-slate-600">No platform activity recorded yet.</p>@endforelse</div></div>
     </section>
+    @else
+    <section class="grid gap-5 xl:grid-cols-2">
+        <div class="bc-panel p-5 sm:p-6" style="border-radius: 8px"><div class="mb-5 flex items-center justify-between"><h2 class="font-bold text-white">Recent collections</h2>@unless($isSaasView)<a href="{{ route('payments') }}" class="text-sm font-semibold text-teal-300">View payments</a>@endunless</div><div class="space-y-1">@forelse($recentPayments as $payment)<div class="flex items-center justify-between border-b border-white/5 py-3 last:border-0"><div class="min-w-0"><div class="truncate text-sm font-semibold text-white">{{ $payment->customer?->name ?? 'Customer' }}</div><div class="text-xs text-slate-600">{{ $payment->invoice?->invoice_number ?? strtoupper($payment->payment_method) }} · {{ $payment->payment_date->format('M d, H:i') }}</div></div><div class="ml-4 text-sm font-black text-emerald-300">+৳{{ number_format($payment->amount, 2) }}</div></div>@empty<p class="py-10 text-center text-sm text-slate-600">No collections in this workspace yet.</p>@endforelse</div></div>
+        <div class="bc-panel p-5 sm:p-6" style="border-radius: 8px"><div class="mb-5 flex items-center justify-between"><h2 class="font-bold text-white">Overdue queue</h2>@unless($isSaasView)<a href="{{ route('billing') }}" class="text-sm font-semibold text-teal-300">Open billing</a>@endunless</div><div class="space-y-1">@forelse($overdueInvoices as $invoice)<div class="flex items-center justify-between border-b border-white/5 py-3 last:border-0"><div class="min-w-0"><div class="truncate text-sm font-semibold text-white">{{ $invoice->customer?->name ?? 'Deleted customer' }}</div><div class="text-xs text-slate-600">{{ $invoice->invoice_number }} · Due {{ $invoice->due_date?->format('M d') }}</div></div><div class="ml-4 text-sm font-black text-rose-300">৳{{ number_format($invoice->outstanding_amount, 2) }}</div></div>@empty<p class="py-10 text-center text-sm text-slate-600">No overdue invoices.</p>@endforelse</div></div>
+    </section>
+    @endif
 </div>

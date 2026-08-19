@@ -2,45 +2,46 @@
 namespace App\Livewire;
 
 use App\Models\Payment;
-use App\Models\Customer;
-use App\Models\Tenant;
+use App\Models\Invoice;
+use App\Models\User;
+use App\Services\PaymentAllocator;
+use App\Support\AuthorizesRoles;
+use App\Support\CurrentTenant;
+use Illuminate\Validation\Rule;
 use Livewire\Component;
 use Livewire\WithPagination;
 use Livewire\Attributes\Layout;
 
 #[Layout('components.layouts.app')]
 class Payments extends Component {
-    use WithPagination;
+    use AuthorizesRoles, WithPagination;
+
+    public function boot(): void {
+        $this->authorizeRoles(User::ROLE_SUPER_ADMIN, User::ROLE_TENANT_ADMIN, User::ROLE_FINANCE);
+    }
     
     public $showModal = false;
-    public $customer_id, $amount, $payment_method = 'cash', $transaction_id;
+    public $invoice_id, $amount, $payment_method = 'cash', $transaction_id;
     
-    protected $rules = [
-        'customer_id' => 'required|exists:customers,id',
-        'amount' => 'required|numeric|min:1',
-        'payment_method' => 'required|string',
-        'transaction_id' => 'nullable|string'
-    ];
+    protected function rules() {
+        return [
+            'invoice_id' => ['required', Rule::exists('invoices', 'id')->where('tenant_id', app(CurrentTenant::class)->id())],
+            'amount' => 'required|numeric|min:1',
+            'payment_method' => 'required|string',
+            'transaction_id' => 'nullable|required_unless:payment_method,cash|string|max:255'
+        ];
+    }
 
     public function create() {
-        $this->reset(['customer_id', 'amount', 'payment_method', 'transaction_id']);
+        $this->reset(['invoice_id', 'amount', 'payment_method', 'transaction_id']);
         $this->showModal = true;
     }
 
-    public function save() {
+    public function save(PaymentAllocator $allocator) {
         $this->validate();
-        $tenant = Tenant::first();
-        if(!$tenant) return;
+        $tenantId = app(CurrentTenant::class)->id();
 
-        Payment::create([
-            'tenant_id' => $tenant->id,
-            'customer_id' => $this->customer_id,
-            'amount' => $this->amount,
-            'payment_method' => $this->payment_method,
-            'transaction_id' => $this->transaction_id,
-            'payment_date' => now(),
-            'status' => 'successful'
-        ]);
+        $allocator->allocate($tenantId, (int) $this->invoice_id, (float) $this->amount, $this->payment_method, $this->transaction_id);
 
         $this->showModal = false;
         session()->flash('message', 'Payment recorded successfully.');
@@ -48,8 +49,13 @@ class Payments extends Component {
 
     public function render() {
         return view('livewire.payments', [
-            'payments' => Payment::with('customer')->latest()->paginate(10),
-            'customers' => Customer::all()
+            'payments' => Payment::query()->where('tenant_id', app(CurrentTenant::class)->id())->with(['customer', 'invoice'])->latest()->paginate(10),
+            'invoices' => Invoice::query()
+                ->where('tenant_id', app(CurrentTenant::class)->id())
+                ->whereIn('status', ['pending', 'overdue'])
+                ->with(['customer', 'payments'])
+                ->latest()
+                ->get()
         ]);
     }
 }

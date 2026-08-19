@@ -2,14 +2,20 @@
 namespace App\Livewire;
 
 use App\Models\Reseller;
-use App\Models\Tenant;
+use App\Models\User;
+use App\Support\AuthorizesRoles;
+use App\Support\CurrentTenant;
 use Livewire\Component;
 use Livewire\WithPagination;
 use Livewire\Attributes\Layout;
 
 #[Layout('components.layouts.app')]
 class Resellers extends Component {
-    use WithPagination;
+    use AuthorizesRoles, WithPagination;
+
+    public function boot(): void {
+        $this->authorizeRoles(User::ROLE_SUPER_ADMIN, User::ROLE_TENANT_ADMIN);
+    }
     
     public $showModal = false;
     public $name, $email, $phone, $status = 'active';
@@ -28,11 +34,10 @@ class Resellers extends Component {
 
     public function save() {
         $this->validate();
-        $tenant = Tenant::first();
-        if(!$tenant) return;
+        $tenantId = app(CurrentTenant::class)->id();
 
         Reseller::create([
-            'tenant_id' => $tenant->id,
+            'tenant_id' => $tenantId,
             'name' => $this->name,
             'email' => $this->email,
             'phone' => $this->phone,
@@ -45,7 +50,7 @@ class Resellers extends Component {
 
     public function render() {
         return view('livewire.resellers', [
-            'resellers' => Reseller::latest()->paginate(10)
+            'resellers' => Reseller::query()->where('tenant_id', app(CurrentTenant::class)->id())->latest()->paginate(10)
         ]);
     }
 }

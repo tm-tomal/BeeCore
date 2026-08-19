@@ -18,7 +18,7 @@ class TenantCrudTest extends TestCase
 
         $this->actingAs($user)
             ->get('/tenants')
-            ->assertSee('Manage Tenants (ISPs)');
+            ->assertSee('Tenant portfolio');
     }
 
     public function test_can_create_tenant(): void

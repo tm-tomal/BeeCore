@@ -33,4 +33,19 @@ class Customer extends Model
     {
         return $this->hasMany(Invoice::class);
     }
+
+    public function payments(): HasMany
+    {
+        return $this->hasMany(Payment::class);
+    }
+
+    public function subscriptions(): HasMany
+    {
+        return $this->hasMany(CustomerSubscription::class);
+    }
+
+    public function activeSubscription()
+    {
+        return $this->hasOne(CustomerSubscription::class)->where('status', 'active')->latestOfMany();
+    }
 }

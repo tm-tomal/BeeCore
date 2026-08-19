@@ -1,29 +1,76 @@
-<aside class="fixed inset-y-0 left-0 w-72 border-r border-slate-800 bg-slate-900/95 p-6 flex flex-col">
-    <div class="mb-10">
-        <div class="text-2xl font-black tracking-tight text-cyan-400">BeeCore</div>
-        <div class="mt-1 text-xs uppercase tracking-[0.22em] text-slate-500">SaaS Control</div>
+@php
+    $user = auth()->user();
+    $hasTenantContext = $user?->tenant_id || session('impersonated_tenant_id');
+@endphp
+
+<aside :class="navigationOpen ? 'translate-x-0' : '-translate-x-full'" class="fixed inset-y-0 left-0 z-50 flex w-64 flex-col border-r border-white/10 bg-[#0a1413] p-4 transition-transform duration-200 lg:translate-x-0">
+    <div class="mb-7 flex h-12 items-center justify-between px-2">
+        <div><div class="text-xl font-black text-teal-300">BeeCore</div><div class="text-[10px] font-bold uppercase tracking-[0.18em] text-slate-600">Operations console</div></div>
+        <button type="button" @click="navigationOpen = false" aria-label="Close navigation" class="grid h-9 w-9 place-items-center text-slate-400 hover:bg-white/5 hover:text-white lg:hidden" style="border-radius: 6px"><svg aria-hidden="true" class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
     </div>
 
-    <nav class="space-y-2 text-sm text-slate-300 flex-1">
-        <a href="{{ route('dashboard') }}" class="flex items-center justify-between rounded-xl px-3 py-2 {{ request()->routeIs('dashboard') ? 'bg-cyan-500/15 text-cyan-300' : 'hover:bg-slate-800' }}"><span>Overview</span><span>●</span></a>
-        <a href="{{ route('tenants') }}" class="flex items-center justify-between rounded-xl px-3 py-2 {{ request()->routeIs('tenants') ? 'bg-emerald-500/15 text-emerald-300' : 'hover:bg-slate-800' }}"><span>Tenants (ISPs)</span><span>🏢</span></a>
-        <a href="{{ route('packages') }}" class="flex items-center justify-between rounded-xl px-3 py-2 {{ request()->routeIs('packages') ? 'bg-violet-500/15 text-violet-300' : 'hover:bg-slate-800' }}"><span>Packages & IPs</span><span>📦</span></a>
-        <a href="{{ route('customers') }}" class="flex items-center justify-between rounded-xl px-3 py-2 {{ request()->routeIs('customers') ? 'bg-cyan-500/15 text-cyan-300' : 'hover:bg-slate-800' }}"><span>Customers</span><span></span></a>
-        <a href="{{ route('billing') }}" class="flex items-center justify-between rounded-xl px-3 py-2 {{ request()->routeIs('billing') ? 'bg-cyan-500/15 text-cyan-300' : 'hover:bg-slate-800' }}"><span>Billing</span><span>৳</span></a>
-        <a href="{{ route('payments') }}" class="flex items-center justify-between rounded-xl px-3 py-2 {{ request()->routeIs('payments') ? 'bg-emerald-500/15 text-emerald-400' : 'hover:bg-slate-800' }}"><span>Payments</span><span>↗</span></a>
-        <a href="{{ route('network') }}" class="flex items-center justify-between rounded-xl px-3 py-2 {{ request()->routeIs('network') ? 'bg-cyan-500/15 text-cyan-300' : 'hover:bg-slate-800' }}"><span>Network</span><span>◉</span></a>
-        <a href="{{ route('resellers') }}" class="flex items-center justify-between rounded-xl px-3 py-2 {{ request()->routeIs('resellers') ? 'bg-amber-500/15 text-amber-300' : 'hover:bg-slate-800' }}"><span>Resellers</span><span>◎</span></a>
-        <a href="{{ route('reports') }}" class="flex items-center justify-between rounded-xl px-3 py-2 {{ request()->routeIs('reports') ? 'bg-rose-500/15 text-rose-300' : 'hover:bg-slate-800' }}"><span>Reports</span><span>▣</span></a>
+    @if(session('impersonated_tenant_id'))
+        <div class="mb-5 border border-amber-400/25 bg-amber-400/10 p-3" style="border-radius: 6px">
+            <div class="mb-1 text-[10px] font-bold uppercase text-amber-300">Viewing tenant</div>
+            <div class="font-bold text-slate-200">{{ session('impersonated_tenant_name') }}</div>
+            <a href="{{ route('leave-impersonation') }}" class="mt-3 block w-full bg-amber-300 px-3 py-2 text-center text-xs font-bold text-[#07100f]" style="border-radius: 5px">Exit workspace</a>
+        </div>
+    @endif
+
+    <nav aria-label="Primary navigation" class="flex-1 space-y-1 overflow-y-auto text-sm text-slate-400">
+        <a href="{{ route('dashboard') }}" @click="navigationOpen = false" class="block px-3 py-2.5 font-semibold {{ request()->routeIs('dashboard') ? 'bg-teal-300/10 text-teal-300' : 'hover:bg-white/5 hover:text-white' }}" style="border-radius: 6px">Dashboard</a>
+
+        @if($user?->isSuperAdmin() && !session('impersonated_tenant_id'))
+            @foreach(config('super_admin_menu', []) as $menuGroup)
+                <div class="px-3 pb-2 pt-5 text-[10px] font-bold uppercase tracking-[0.16em] text-slate-600">{{ $menuGroup['group'] }}</div>
+                @foreach($menuGroup['items'] as $menuItem)
+                    @php
+                        $menuActive = isset($menuItem['route'])
+                            ? request()->routeIs($menuItem['route']) || ($menuItem['route'] === 'tenants' && request()->routeIs('tenant-details'))
+                            : request()->routeIs('super-admin.coming-soon') && request()->route('slug') === $menuItem['slug'];
+                        $menuHref = isset($menuItem['route']) ? route($menuItem['route']) : route('super-admin.coming-soon', $menuItem['slug']);
+                    @endphp
+                    <a href="{{ $menuHref }}" @click="navigationOpen = false" class="flex items-center justify-between px-3 py-2.5 font-semibold {{ $menuActive ? 'bg-teal-300/10 text-teal-300' : 'hover:bg-white/5 hover:text-white' }}" style="border-radius: 6px">
+                        <span>{{ $menuItem['label'] }}</span>
+                        @if(!isset($menuItem['route']))
+                            <span class="text-[9px] font-bold uppercase tracking-wide text-amber-400/80">Soon</span>
+                        @endif
+                    </a>
+                @endforeach
+            @endforeach
+        @endif
+
+        @if($hasTenantContext)
+            <div class="px-3 pb-2 pt-5 text-[10px] font-bold uppercase tracking-[0.16em] text-slate-600">Tenant workspace</div>
+
+            @if(in_array($user->role, [\App\Models\User::ROLE_SUPER_ADMIN, \App\Models\User::ROLE_TENANT_ADMIN, \App\Models\User::ROLE_SUPPORT, \App\Models\User::ROLE_NETWORK_ENGINEER], true))
+                <a href="{{ route('customers') }}" @click="navigationOpen = false" class="block px-3 py-2.5 font-semibold {{ request()->routeIs('customers') ? 'bg-teal-300/10 text-teal-300' : 'hover:bg-white/5 hover:text-white' }}" style="border-radius: 6px">Customers</a>
+            @endif
+            @if(in_array($user->role, [\App\Models\User::ROLE_SUPER_ADMIN, \App\Models\User::ROLE_TENANT_ADMIN], true))
+                <a href="{{ route('packages') }}" @click="navigationOpen = false" class="block px-3 py-2.5 font-semibold {{ request()->routeIs('packages') ? 'bg-teal-300/10 text-teal-300' : 'hover:bg-white/5 hover:text-white' }}" style="border-radius: 6px">Packages</a>
+            @endif
+            @if(in_array($user->role, [\App\Models\User::ROLE_SUPER_ADMIN, \App\Models\User::ROLE_TENANT_ADMIN, \App\Models\User::ROLE_FINANCE], true))
+                <a href="{{ route('billing') }}" @click="navigationOpen = false" class="block px-3 py-2.5 font-semibold {{ request()->routeIs('billing') ? 'bg-teal-300/10 text-teal-300' : 'hover:bg-white/5 hover:text-white' }}" style="border-radius: 6px">Billing</a>
+                <a href="{{ route('payments') }}" @click="navigationOpen = false" class="block px-3 py-2.5 font-semibold {{ request()->routeIs('payments') ? 'bg-teal-300/10 text-teal-300' : 'hover:bg-white/5 hover:text-white' }}" style="border-radius: 6px">Payments</a>
+            @endif
+            @if(in_array($user->role, [\App\Models\User::ROLE_SUPER_ADMIN, \App\Models\User::ROLE_TENANT_ADMIN, \App\Models\User::ROLE_NETWORK_ENGINEER], true))
+                <a href="{{ route('network') }}" @click="navigationOpen = false" class="block px-3 py-2.5 font-semibold {{ request()->routeIs('network') ? 'bg-teal-300/10 text-teal-300' : 'hover:bg-white/5 hover:text-white' }}" style="border-radius: 6px">Network</a>
+            @endif
+            @if(in_array($user->role, [\App\Models\User::ROLE_SUPER_ADMIN, \App\Models\User::ROLE_TENANT_ADMIN], true))
+                <a href="{{ route('resellers') }}" @click="navigationOpen = false" class="block px-3 py-2.5 font-semibold {{ request()->routeIs('resellers') ? 'bg-teal-300/10 text-teal-300' : 'hover:bg-white/5 hover:text-white' }}" style="border-radius: 6px">Resellers</a>
+            @endif
+            @if(in_array($user->role, [\App\Models\User::ROLE_SUPER_ADMIN, \App\Models\User::ROLE_TENANT_ADMIN, \App\Models\User::ROLE_FINANCE, \App\Models\User::ROLE_SUPPORT, \App\Models\User::ROLE_NETWORK_ENGINEER], true))
+                <a href="{{ route('reports') }}" @click="navigationOpen = false" class="block px-3 py-2.5 font-semibold {{ request()->routeIs('reports') ? 'bg-teal-300/10 text-teal-300' : 'hover:bg-white/5 hover:text-white' }}" style="border-radius: 6px">Reports</a>
+            @endif
+        @endif
     </nav>
 
-    <div class="mt-auto border-t border-slate-800 pt-4">
+    <div class="mt-4 border-t border-white/10 pt-4">
+        <div class="mb-3 flex items-center gap-3 px-2"><div class="grid h-9 w-9 place-items-center bg-emerald-400/15 text-sm font-bold text-emerald-300" style="border-radius: 6px">{{ strtoupper(substr($user->name ?? 'A', 0, 1)) }}</div><div class="min-w-0"><div class="truncate text-sm font-bold text-white">{{ $user->name }}</div><div class="truncate text-xs capitalize text-slate-600">{{ str_replace('_', ' ', $user->role) }}</div></div></div>
         <form method="POST" action="{{ route('logout') }}">
             @csrf
-            <button type="submit" class="flex w-full items-center justify-between rounded-xl px-3 py-2 text-sm text-rose-400 hover:bg-slate-800">
-                <span>Logout</span>
-                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-4 h-4">
-                  <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0013.5 3h-6a2.25 2.25 0 00-2.25 2.25v13.5A2.25 2.25 0 007.5 21h6a2.25 2.25 0 002.25-2.25V15M12 9l-3 3m0 0l3 3m-3-3h12.75" />
-                </svg>
+            <button type="submit" class="flex w-full items-center justify-between px-3 py-2 text-sm font-semibold text-slate-500 transition hover:bg-white/5 hover:text-rose-300" style="border-radius: 6px">
+                <span>Sign out</span><span aria-hidden="true">→</span>
             </button>
         </form>
     </div>

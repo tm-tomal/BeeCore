@@ -3,7 +3,9 @@
 namespace App\Livewire;
 
 use App\Models\Package;
-use App\Models\Tenant;
+use App\Models\User;
+use App\Support\AuthorizesRoles;
+use App\Support\CurrentTenant;
 use Livewire\Component;
 use Livewire\WithPagination;
 use Livewire\Attributes\Layout;
@@ -11,7 +13,12 @@ use Livewire\Attributes\Layout;
 #[Layout('components.layouts.app')]
 class Packages extends Component
 {
-    use WithPagination;
+    use AuthorizesRoles, WithPagination;
+
+    public function boot(): void
+    {
+        $this->authorizeRoles(User::ROLE_SUPER_ADMIN, User::ROLE_TENANT_ADMIN);
+    }
 
     public $showModal = false;
     public $isEditing = false;
@@ -44,7 +51,7 @@ class Packages extends Component
     public function edit($id)
     {
         $this->resetValidation();
-        $package = Package::findOrFail($id);
+        $package = $this->packages()->findOrFail($id);
         $this->packageId = $package->id;
         $this->name = $package->name;
         $this->price = $package->price;
@@ -60,10 +67,10 @@ class Packages extends Component
     {
         $this->validate();
 
-        $tenant = Tenant::first();
+        $tenantId = app(CurrentTenant::class)->id();
 
         if ($this->isEditing) {
-            Package::findOrFail($this->packageId)->update([
+            $this->packages()->findOrFail($this->packageId)->update([
                 'name' => $this->name,
                 'price' => $this->price,
                 'bandwidth' => $this->bandwidth,
@@ -72,7 +79,7 @@ class Packages extends Component
             ]);
         } else {
             Package::create([
-                'tenant_id' => $tenant->id,
+                'tenant_id' => $tenantId,
                 'name' => $this->name,
                 'price' => $this->price,
                 'bandwidth' => $this->bandwidth,
@@ -87,14 +94,19 @@ class Packages extends Component
 
     public function delete($id)
     {
-        Package::findOrFail($id)->delete();
+        $this->packages()->findOrFail($id)->delete();
         session()->flash('message', 'Package deleted successfully.');
     }
 
     public function render()
     {
         return view('livewire.packages', [
-            'packages' => Package::latest()->paginate(10)
+            'packages' => $this->packages()->latest()->paginate(10)
         ]);
+    }
+
+    private function packages()
+    {
+        return Package::query()->where('tenant_id', app(CurrentTenant::class)->id());
     }
 }

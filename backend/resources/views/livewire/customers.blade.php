@@ -1,11 +1,13 @@
 <div>
-    <header class="mb-8 flex items-center justify-between">
+    @if($viewMode === 'index')
+    <header class="mb-6 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
-            <p class="text-sm uppercase tracking-[0.2em] text-cyan-300">Customers</p>
-            <h1 class="mt-2 text-3xl font-black text-white">Manage Customers</h1>
+            <p class="text-xs font-bold uppercase tracking-[0.16em] text-teal-300">Customers</p>
+            <h1 class="mt-2 text-2xl font-black text-white sm:text-3xl">Customer directory</h1>
+            <p class="mt-2 text-sm text-slate-500">Manage service status and recurring package assignments.</p>
         </div>
         <div class="flex items-center gap-4">
-            <button wire:click="create" class="rounded-xl bg-cyan-500 px-4 py-2 text-sm font-semibold text-slate-950 transition hover:bg-cyan-400">
+            <button wire:click="create" class="bc-primary">
                 Add Customer
             </button>
         </div>
@@ -17,8 +19,8 @@
         </div>
     @endif
 
-    <div class="overflow-hidden rounded-3xl border border-slate-800 bg-slate-900">
-        <table class="w-full text-left text-sm">
+    <div class="bc-table-wrap">
+        <table class="bc-table">
             <thead class="border-b border-slate-800 bg-slate-950/50 text-slate-400">
                 <tr>
                     <th class="px-6 py-4 font-semibold uppercase tracking-wider">Name</th>
@@ -45,7 +47,12 @@
                                 <span class="rounded-full bg-rose-500/15 px-2.5 py-1 text-xs font-semibold text-rose-400">Cancelled</span>
                             @endif
                         </td>
-                        <td class="px-6 py-4">{{ $customer->package_name ?: 'N/A' }}</td>
+                        <td class="px-6 py-4">
+                            <div>{{ $customer->activeSubscription?->package_name ?? $customer->package_name ?? 'N/A' }}</div>
+                            @if($customer->activeSubscription)
+                                <div class="mt-1 text-xs text-slate-500">{{ ucfirst($customer->activeSubscription->billing_cycle) }} · Next {{ $customer->activeSubscription->next_billing_date->format('M d, Y') }}</div>
+                            @endif
+                        </td>
                         <td class="px-6 py-4 text-right">
                             <button wire:click="edit({{ $customer->id }})" class="mr-3 text-cyan-400 hover:text-cyan-300">Edit</button>
                             <button wire:click="delete({{ $customer->id }})" wire:confirm="Are you sure you want to delete this customer?" class="text-rose-400 hover:text-rose-300">Delete</button>
@@ -66,61 +73,92 @@
         @endif
     </div>
 
-    <!-- Create / Edit Modal -->
-    @if($showModal)
-        <div class="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-0">
-            <div class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm" wire:click="$set('showModal', false)"></div>
-            <div class="relative w-full max-w-lg rounded-3xl border border-slate-800 bg-slate-900 p-8 shadow-2xl">
-                <div class="mb-6 flex items-center justify-between">
-                    <h3 class="text-2xl font-bold text-white">{{ $isEditing ? 'Edit Customer' : 'Add Customer' }}</h3>
-                    <button wire:click="$set('showModal', false)" class="text-slate-400 hover:text-white">
-                        <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
-                    </button>
+    @else
+
+    <!-- Page-wise Create / Edit View -->
+    <header class="mb-6 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+            <p class="text-sm uppercase tracking-[0.2em] text-cyan-300">Customers</p>
+            <h1 class="mt-2 text-2xl font-black text-white sm:text-3xl">{{ $isEditing ? 'Edit customer' : 'Add customer' }}</h1>
+        </div>
+        <div class="flex items-center gap-4">
+            <button wire:click="cancel" class="bc-secondary">
+                Back to List
+            </button>
+        </div>
+    </header>
+
+    <div class="bc-panel max-w-4xl p-5 sm:p-8" style="border-radius: 8px">
+        <form wire:submit="save" class="space-y-6">
+            <div>
+                <label class="mb-2 block text-sm font-medium text-slate-300">Name</label>
+                <input type="text" wire:model="name" class="w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-white placeholder:text-slate-600 focus:border-cyan-400 focus:outline-none" placeholder="John Doe">
+                @error('name') <span class="text-xs text-rose-400">{{ $message }}</span> @enderror
+            </div>
+
+            <div class="grid gap-5 md:grid-cols-2">
+                <div>
+                    <label class="mb-2 block text-sm font-medium text-slate-300">Email Address</label>
+                    <input type="email" wire:model="email" class="w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-white placeholder:text-slate-600 focus:border-cyan-400 focus:outline-none" placeholder="john@example.com">
+                    @error('email') <span class="text-xs text-rose-400">{{ $message }}</span> @enderror
                 </div>
                 
-                <form wire:submit="save" class="space-y-4">
-                    <div>
-                        <label class="mb-2 block text-sm font-medium text-slate-300">Name</label>
-                        <input type="text" wire:model="name" class="w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-white placeholder:text-slate-600 focus:border-cyan-400 focus:outline-none" placeholder="John Doe">
-                        @error('name') <span class="text-xs text-rose-400">{{ $message }}</span> @enderror
-                    </div>
-                    
-                    <div>
-                        <label class="mb-2 block text-sm font-medium text-slate-300">Email</label>
-                        <input type="email" wire:model="email" class="w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-white placeholder:text-slate-600 focus:border-cyan-400 focus:outline-none" placeholder="john@example.com">
-                        @error('email') <span class="text-xs text-rose-400">{{ $message }}</span> @enderror
-                    </div>
-                    
-                    <div>
-                        <label class="mb-2 block text-sm font-medium text-slate-300">Phone</label>
-                        <input type="text" wire:model="phone" class="w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-white placeholder:text-slate-600 focus:border-cyan-400 focus:outline-none" placeholder="+8801...">
-                        @error('phone') <span class="text-xs text-rose-400">{{ $message }}</span> @enderror
-                    </div>
-
-                    <div class="grid grid-cols-2 gap-4">
-                        <div>
-                            <label class="mb-2 block text-sm font-medium text-slate-300">Status</label>
-                            <select wire:model="status" class="w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-white focus:border-cyan-400 focus:outline-none">
-                                <option value="active">Active</option>
-                                <option value="suspended">Suspended</option>
-                                <option value="cancelled">Cancelled</option>
-                            </select>
-                            @error('status') <span class="text-xs text-rose-400">{{ $message }}</span> @enderror
-                        </div>
-                        
-                        <div>
-                            <label class="mb-2 block text-sm font-medium text-slate-300">Package</label>
-                            <input type="text" wire:model="package_name" class="w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-white placeholder:text-slate-600 focus:border-cyan-400 focus:outline-none" placeholder="10 Mbps">
-                            @error('package_name') <span class="text-xs text-rose-400">{{ $message }}</span> @enderror
-                        </div>
-                    </div>
-
-                    <div class="mt-8 flex justify-end gap-3 pt-4">
-                        <button type="button" wire:click="$set('showModal', false)" class="rounded-xl px-4 py-2 font-medium text-slate-400 hover:text-white">Cancel</button>
-                        <button type="submit" class="rounded-xl bg-cyan-500 px-6 py-2 font-medium text-slate-950 transition hover:bg-cyan-400">Save Customer</button>
-                    </div>
-                </form>
+                <div>
+                    <label class="mb-2 block text-sm font-medium text-slate-300">Contact Number</label>
+                    <input type="text" wire:model="phone" class="w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-white placeholder:text-slate-600 focus:border-cyan-400 focus:outline-none" placeholder="+8801...">
+                    @error('phone') <span class="text-xs text-rose-400">{{ $message }}</span> @enderror
+                </div>
             </div>
-        </div>
+
+            <div class="grid gap-5 border-t border-white/10 pt-5 md:grid-cols-2">
+                <div>
+                    <label class="mb-2 block text-sm font-medium text-slate-300">Assign Package</label>
+                    <select wire:model.live="package_id" class="w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-white focus:border-cyan-400 focus:outline-none">
+                        <option value="">No recurring package</option>
+                        @foreach($packages as $package)
+                            <option value="{{ $package->id }}">{{ $package->name }} · {{ number_format($package->price, 2) }} BDT</option>
+                        @endforeach
+                    </select>
+                    @error('package_id') <span class="text-xs text-rose-400">{{ $message }}</span> @enderror
+                </div>
+
+                <div>
+                    <label class="mb-2 block text-sm font-medium text-slate-300">Current Status</label>
+                    <select wire:model="status" class="w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-white focus:border-cyan-400 focus:outline-none">
+                        <option value="active">Active</option>
+                        <option value="pending">Pending</option>
+                        <option value="inactive">Inactive</option>
+                        <option value="suspended">Suspended</option>
+                    </select>
+                    @error('status') <span class="text-xs text-rose-400">{{ $message }}</span> @enderror
+                </div>
+            </div>
+
+            @if($package_id)
+                <div class="grid gap-5 border border-white/10 bg-black/10 p-5 md:grid-cols-2" style="border-radius: 6px">
+                    <div>
+                        <label class="mb-2 block text-sm font-medium text-slate-300">Billing Cycle</label>
+                        <select wire:model="billing_cycle" class="w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-white">
+                            <option value="monthly">Monthly</option>
+                            <option value="quarterly">Quarterly</option>
+                            <option value="semiannual">Half-yearly</option>
+                            <option value="yearly">Yearly</option>
+                        </select>
+                        @error('billing_cycle') <span class="text-xs text-rose-400">{{ $message }}</span> @enderror
+                    </div>
+                    <div>
+                        <label class="mb-2 block text-sm font-medium text-slate-300">Next Billing Date</label>
+                        <input type="date" wire:model="next_billing_date" class="w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-white">
+                        @error('next_billing_date') <span class="text-xs text-rose-400">{{ $message }}</span> @enderror
+                    </div>
+                </div>
+            @endif
+
+            <div class="mt-8 flex justify-end gap-3 pt-4">
+                <button type="button" wire:click="cancel" class="bc-secondary">Cancel</button>
+                <button type="submit" wire:loading.attr="disabled" class="bc-primary"><span wire:loading.remove wire:target="save">Save customer</span><span wire:loading wire:target="save">Saving...</span></button>
+            </div>
+        </form>
+    </div>
     @endif
 </div>

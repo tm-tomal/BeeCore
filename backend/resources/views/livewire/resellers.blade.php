@@ -1,30 +1,6 @@
 <div>
-    <header class="mb-8 flex items-center justify-between">
-        <div><p class="text-sm uppercase tracking-[0.2em] text-cyan-300">Resellers</p><h1 class="mt-2 text-3xl font-black text-white">Manage Resellers</h1></div>
-        <button wire:click="create" class="rounded-xl bg-cyan-500 px-4 py-2 font-semibold text-slate-950 transition hover:bg-cyan-400">Add Reseller</button>
-    </header>
-    @if (session()->has('message'))<div class="mb-6 rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-4 text-emerald-400">{{ session('message') }}</div>@endif
-    <div class="overflow-hidden rounded-3xl border border-slate-800 bg-slate-900">
-        <table class="w-full text-left text-sm"><thead class="border-b border-slate-800 bg-slate-950/50 text-slate-400"><tr>
-            <th class="px-6 py-4 font-semibold uppercase">Reseller Details</th><th class="px-6 py-4 font-semibold uppercase">Balance (BDT)</th><th class="px-6 py-4 font-semibold uppercase">Status</th>
-        </tr></thead><tbody class="divide-y divide-slate-800 text-slate-300">
-            @forelse($resellers as $r)
-            <tr class="hover:bg-slate-800/50"><td class="px-6 py-4"><div class="font-bold text-white">{{ $r->name }}</div><div class="text-xs text-slate-500">{{ $r->email }}</div></td><td class="px-6 py-4">{{ number_format($r->balance, 2) }}</td><td class="px-6 py-4">@if($r->status == 'active')<span class="text-emerald-400">Active</span>@else<span class="text-rose-400">Suspended</span>@endif</td></tr>
-            @empty <tr><td colspan="3" class="p-6 text-center text-slate-500">No resellers found.</td></tr> @endforelse
-        </tbody></table>
-        <div class="p-4">{{ $resellers->links() }}</div>
-    </div>
-    @if($showModal)
-    <div class="fixed inset-0 z-50 flex items-center justify-center p-4">
-        <div class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm" wire:click="$set('showModal', false)"></div>
-        <div class="relative w-full max-w-lg rounded-3xl border border-slate-800 bg-slate-900 p-8 shadow-2xl">
-            <h3 class="mb-6 text-2xl font-bold text-white">Add Reseller</h3>
-            <form wire:submit="save" class="space-y-4">
-                <div><label class="mb-2 text-sm text-slate-300">Name</label><input type="text" wire:model="name" class="w-full rounded-xl border border-slate-700 bg-slate-950 p-3 text-white"></div>
-                <div><label class="mb-2 text-sm text-slate-300">Email Address</label><input type="email" wire:model="email" class="w-full rounded-xl border border-slate-700 bg-slate-950 p-3 text-white"></div>
-                <div class="flex justify-end gap-3 pt-4"><button type="submit" class="rounded-xl bg-cyan-500 px-6 py-2 font-medium text-slate-950">Save</button></div>
-            </form>
-        </div>
-    </div>
-    @endif
+    <header class="mb-6 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between"><div><p class="text-xs font-bold uppercase tracking-[0.16em] text-teal-300">Channel operations</p><h1 class="mt-2 text-2xl font-black text-white sm:text-3xl">Resellers</h1><p class="mt-2 text-sm text-slate-500">Maintain reseller contacts, balances, and access status.</p></div><button wire:click="create" class="bc-primary">Add reseller</button></header>
+    @if(session()->has('message'))<div class="mb-5 border border-emerald-400/20 bg-emerald-400/10 p-3 text-sm text-emerald-300" style="border-radius: 6px">{{ session('message') }}</div>@endif
+    <div class="bc-table-wrap"><table class="bc-table"><thead><tr><th>Reseller</th><th>Contact</th><th>Balance</th><th>Status</th></tr></thead><tbody>@forelse($resellers as $reseller)<tr><td><div class="font-bold text-white">{{ $reseller->name }}</div></td><td><div>{{ $reseller->email ?: 'No email' }}</div><div class="text-xs text-slate-600">{{ $reseller->phone ?: 'No phone' }}</div></td><td class="font-bold text-white">৳{{ number_format($reseller->balance, 2) }}</td><td><span class="inline-flex items-center gap-2 font-semibold {{ $reseller->status === 'active' ? 'text-emerald-300' : 'text-amber-300' }}"><span class="h-2 w-2 rounded-full bg-current"></span>{{ ucfirst($reseller->status) }}</span></td></tr>@empty<tr><td colspan="4" class="py-12 text-center text-slate-600">No resellers created.</td></tr>@endforelse</tbody></table>@if($resellers->hasPages())<div class="border-t border-white/10 p-4">{{ $resellers->links() }}</div>@endif</div>
+    @if($showModal)<div class="fixed inset-0 z-[60] flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-labelledby="reseller-dialog-title"><div class="fixed inset-0 bg-black/70" wire:click="$set('showModal', false)"></div><div class="bc-panel relative max-h-[92vh] w-full max-w-lg overflow-y-auto p-5 sm:p-7" style="border-radius: 8px"><h2 id="reseller-dialog-title" class="text-xl font-bold text-white">Add reseller</h2><form wire:submit="save" class="mt-6 space-y-4"><div><label for="reseller-name" class="bc-label">Name</label><input id="reseller-name" type="text" wire:model="name" class="bc-field">@error('name')<p class="mt-1 text-xs text-rose-300">{{ $message }}</p>@enderror</div><div class="grid gap-4 sm:grid-cols-2"><div><label for="reseller-email" class="bc-label">Email</label><input id="reseller-email" type="email" wire:model="email" class="bc-field">@error('email')<p class="mt-1 text-xs text-rose-300">{{ $message }}</p>@enderror</div><div><label for="reseller-phone" class="bc-label">Phone</label><input id="reseller-phone" type="text" wire:model="phone" class="bc-field">@error('phone')<p class="mt-1 text-xs text-rose-300">{{ $message }}</p>@enderror</div></div><div><label for="reseller-status" class="bc-label">Status</label><select id="reseller-status" wire:model="status" class="bc-field"><option value="active">Active</option><option value="suspended">Suspended</option></select></div><div class="flex justify-end gap-2 pt-3"><button type="button" wire:click="$set('showModal', false)" class="bc-secondary">Cancel</button><button type="submit" wire:loading.attr="disabled" class="bc-primary"><span wire:loading.remove wire:target="save">Save reseller</span><span wire:loading wire:target="save">Saving...</span></button></div></form></div></div>@endif
 </div>

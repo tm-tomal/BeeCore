@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\User;
+use App\Models\Tenant;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Livewire\Livewire;
 use Tests\TestCase;
@@ -13,16 +14,18 @@ class CustomerCrudTest extends TestCase
 
     public function test_can_view_customers(): void
     {
-        $user = User::factory()->create();
+        $tenant = Tenant::create(['name' => 'Demo', 'slug' => 'demo', 'status' => 'active', 'currency' => 'BDT', 'timezone' => 'UTC']);
+        $user = User::factory()->create(['tenant_id' => $tenant->id, 'role' => User::ROLE_TENANT_ADMIN]);
 
         $this->actingAs($user)
             ->get('/customers')
-            ->assertSee('Manage Customers');
+            ->assertSee('Customer directory');
     }
 
     public function test_can_create_customer(): void
     {
-        $user = User::factory()->create();
+        $tenant = Tenant::create(['name' => 'Demo', 'slug' => 'demo', 'status' => 'active', 'currency' => 'BDT', 'timezone' => 'UTC']);
+        $user = User::factory()->create(['tenant_id' => $tenant->id, 'role' => User::ROLE_TENANT_ADMIN]);
 
         Livewire::actingAs($user)
             ->test(\App\Livewire\Customers::class)
@@ -35,6 +38,7 @@ class CustomerCrudTest extends TestCase
             ->assertHasNoErrors();
             
         $this->assertDatabaseHas('customers', [
+            'tenant_id' => $tenant->id,
             'email' => 'john@test.com'
         ]);
     }

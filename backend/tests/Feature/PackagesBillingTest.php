@@ -15,21 +15,22 @@ class PackagesBillingTest extends TestCase
 
     public function test_can_view_packages_and_billing(): void
     {
-        $user = User::factory()->create();
+        $tenant = Tenant::create(['name' => 'Demo', 'slug' => 'demo', 'status' => 'active', 'currency' => 'BDT', 'timezone' => 'UTC']);
+        $user = User::factory()->create(['tenant_id' => $tenant->id, 'role' => User::ROLE_TENANT_ADMIN]);
 
         $this->actingAs($user)
             ->get('/packages')
-            ->assertSee('Manage Packages & IPs');
+            ->assertSee('Packages & IP plans', false);
 
         $this->actingAs($user)
             ->get('/billing')
-            ->assertSee('Manage Invoices');
+            ->assertSee('Invoices');
     }
 
     public function test_can_create_package_and_invoice(): void
     {
-        $user = User::factory()->create();
         $tenant = Tenant::create(['name' => 'Demo', 'slug' => 'demo', 'status' => 'active', 'currency' => 'BDT', 'timezone' => 'UTC']);
+        $user = User::factory()->create(['tenant_id' => $tenant->id, 'role' => User::ROLE_TENANT_ADMIN]);
         $customer = Customer::create(['tenant_id' => $tenant->id, 'name' => 'Test Cus', 'email' => 't@t.com', 'status' => 'active']);
 
         Livewire::actingAs($user)
@@ -42,6 +43,7 @@ class PackagesBillingTest extends TestCase
             ->assertHasNoErrors();
             
         $this->assertDatabaseHas('packages', [
+            'tenant_id' => $tenant->id,
             'name' => '10Mbps Dedicated'
         ]);
 
@@ -49,7 +51,11 @@ class PackagesBillingTest extends TestCase
             ->test(\App\Livewire\Billing::class)
             ->set('customer_id', $customer->id)
             ->set('status', 'draft')
-            ->set('subtotal', 2500)
+            ->set('items', [[
+                'description' => '10Mbps Dedicated',
+                'quantity' => 1,
+                'unit_price' => 2500,
+            ]])
             ->set('tax_amount', 0)
             ->set('due_date', now()->addDays(7)->format('Y-m-d'))
             ->call('save')

@@ -1,11 +1,13 @@
 <div>
-    <header class="mb-8 flex items-center justify-between">
+    @if($viewMode === 'index')
+    <header class="mb-6 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
-            <p class="text-sm uppercase tracking-[0.2em] text-cyan-300">Tenants</p>
-            <h1 class="mt-2 text-3xl font-black text-white">Manage Tenants (ISPs)</h1>
+            <p class="text-xs font-bold uppercase tracking-[0.16em] text-teal-300">SaaS administration</p>
+            <h1 class="mt-2 text-2xl font-black text-white sm:text-3xl">Tenant portfolio</h1>
+            <p class="mt-2 text-sm text-slate-500">Provision and enter ISP workspaces.</p>
         </div>
         <div class="flex items-center gap-4">
-            <button wire:click="create" class="rounded-xl bg-cyan-500 px-4 py-2 text-sm font-semibold text-slate-950 transition hover:bg-cyan-400">
+            <button wire:click="create" class="bc-primary">
                 Add Tenant
             </button>
         </div>
@@ -17,8 +19,8 @@
         </div>
     @endif
 
-    <div class="overflow-hidden rounded-3xl border border-slate-800 bg-slate-900">
-        <table class="w-full text-left text-sm">
+    <div class="bc-table-wrap">
+        <table class="bc-table">
             <thead class="border-b border-slate-800 bg-slate-950/50 text-slate-400">
                 <tr>
                     <th class="px-6 py-4 font-semibold uppercase tracking-wider">Name / Slug</th>
@@ -47,8 +49,10 @@
                         </td>
                         <td class="px-6 py-4">{{ $tenant->timezone }}</td>
                         <td class="px-6 py-4 text-right">
+                            <a href="{{ route('tenant-details', $tenant) }}" class="mr-3 text-teal-300 hover:text-teal-200">View</a>
+                            <button wire:click="impersonate({{ $tenant->id }})" class="mr-3 text-violet-400 hover:text-violet-300">Login As</button>
                             <button wire:click="edit({{ $tenant->id }})" class="mr-3 text-cyan-400 hover:text-cyan-300">Edit</button>
-                            <button wire:click="delete({{ $tenant->id }})" wire:confirm="Are you sure you want to delete this tenant?" class="text-rose-400 hover:text-rose-300">Delete</button>
+                            <button wire:click="delete({{ $tenant->id }})" wire:confirm="Archive this tenant and disable workspace access?" class="text-rose-400 hover:text-rose-300">Archive</button>
                         </td>
                     </tr>
                 @empty
@@ -58,68 +62,73 @@
                 @endforelse
             </tbody>
         </table>
-        
-        @if($tenants->hasPages())
-            <div class="border-t border-slate-800 p-4">
-                {{ $tenants->links() }}
-            </div>
-        @endif
+        @if($tenants->hasPages()) <div class="border-t border-slate-800 p-4">{{ $tenants->links() }}</div> @endif
     </div>
 
-    <!-- Create / Edit Modal -->
-    @if($showModal)
-        <div class="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-0">
-            <div class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm" wire:click="$set('showModal', false)"></div>
-            <div class="relative w-full max-w-lg rounded-3xl border border-slate-800 bg-slate-900 p-8 shadow-2xl">
-                <div class="mb-6 flex items-center justify-between">
-                    <h3 class="text-2xl font-bold text-white">{{ $isEditing ? 'Edit Tenant' : 'Add Tenant' }}</h3>
-                    <button wire:click="$set('showModal', false)" class="text-slate-400 hover:text-white">
-                        <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
-                    </button>
-                </div>
-                
-                <form wire:submit="save" class="space-y-4">
-                    <div>
-                        <label class="mb-2 block text-sm font-medium text-slate-300">ISP Name</label>
-                        <input type="text" wire:model.live="name" class="w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-white placeholder:text-slate-600 focus:border-cyan-400 focus:outline-none" placeholder="Acme Network">
-                        @error('name') <span class="text-xs text-rose-400">{{ $message }}</span> @enderror
-                    </div>
-                    
-                    <div>
-                        <label class="mb-2 block text-sm font-medium text-slate-300">Subdomain Slug</label>
-                        <input type="text" wire:model="slug" class="w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-white placeholder:text-slate-600 focus:border-cyan-400 focus:outline-none" placeholder="acme-network">
-                        @error('slug') <span class="text-xs text-rose-400">{{ $message }}</span> @enderror
-                    </div>
+    @else
 
-                    <div class="grid grid-cols-2 gap-4">
-                        <div>
-                            <label class="mb-2 block text-sm font-medium text-slate-300">Status</label>
-                            <select wire:model="status" class="w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-white focus:border-cyan-400 focus:outline-none">
-                                <option value="active">Active</option>
-                                <option value="suspended">Suspended</option>
-                            </select>
-                            @error('status') <span class="text-xs text-rose-400">{{ $message }}</span> @enderror
-                        </div>
-                        
-                        <div>
-                            <label class="mb-2 block text-sm font-medium text-slate-300">Currency</label>
-                            <input type="text" wire:model="currency" class="w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-white placeholder:text-slate-600 focus:border-cyan-400 focus:outline-none" placeholder="BDT">
-                            @error('currency') <span class="text-xs text-rose-400">{{ $message }}</span> @enderror
-                        </div>
-                    </div>
-                    
-                    <div>
-                        <label class="mb-2 block text-sm font-medium text-slate-300">Timezone</label>
-                        <input type="text" wire:model="timezone" class="w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-white placeholder:text-slate-600 focus:border-cyan-400 focus:outline-none" placeholder="Asia/Dhaka">
-                        @error('timezone') <span class="text-xs text-rose-400">{{ $message }}</span> @enderror
-                    </div>
-
-                    <div class="mt-8 flex justify-end gap-3 pt-4">
-                        <button type="button" wire:click="$set('showModal', false)" class="rounded-xl px-4 py-2 font-medium text-slate-400 hover:text-white">Cancel</button>
-                        <button type="submit" class="rounded-xl bg-cyan-500 px-6 py-2 font-medium text-slate-950 transition hover:bg-cyan-400">Save Tenant</button>
-                    </div>
-                </form>
-            </div>
+    <header class="mb-6 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+            <p class="text-sm uppercase tracking-[0.2em] text-cyan-300">Tenants</p>
+            <h1 class="mt-2 text-3xl font-black text-white">{{ $isEditing ? 'Edit Tenant' : 'Add New Tenant' }}</h1>
         </div>
+        <button wire:click="cancel" class="bc-secondary">
+            Back to List
+        </button>
+    </header>
+
+    <div class="bc-panel max-w-4xl p-5 sm:p-8" style="border-radius: 8px">
+        <form wire:submit="save" class="space-y-6">
+            <div class="grid gap-5 md:grid-cols-2">
+                <div>
+                    <label class="mb-2 block text-sm font-medium text-slate-300">ISP Name</label>
+                    <input type="text" wire:model.live="name" class="w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-white placeholder:text-slate-600 focus:border-cyan-400 focus:outline-none" placeholder="Acme Network">
+                    @error('name') <span class="text-xs text-rose-400">{{ $message }}</span> @enderror
+                </div>
+
+                <div>
+                    <label class="mb-2 block text-sm font-medium text-slate-300">Subdomain Slug</label>
+                    <input type="text" wire:model="slug" class="w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-white placeholder:text-slate-600 focus:border-cyan-400 focus:outline-none" placeholder="acme-network">
+                    @error('slug') <span class="text-xs text-rose-400">{{ $message }}</span> @enderror
+                </div>
+            </div>
+
+            <div class="grid gap-5 border-t border-white/10 pt-5 md:grid-cols-2">
+                <div>
+                    <label class="mb-2 block text-sm font-medium text-slate-300">Status</label>
+                    <select wire:model="status" class="w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-white focus:border-cyan-400 focus:outline-none">
+                        <option value="active">Active</option>
+                        <option value="suspended">Suspended</option>
+                    </select>
+                    @error('status') <span class="text-xs text-rose-400">{{ $message }}</span> @enderror
+                </div>
+
+                <div>
+                    <label class="mb-2 block text-sm font-medium text-slate-300">Currency</label>
+                    <input type="text" wire:model="currency" class="w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-white placeholder:text-slate-600 focus:border-cyan-400 focus:outline-none" placeholder="BDT">
+                    @error('currency') <span class="text-xs text-rose-400">{{ $message }}</span> @enderror
+                </div>
+            </div>
+
+            <div class="pt-4 border-t border-slate-800">
+                <label class="mb-2 block text-sm font-medium text-slate-300">Timezone</label>
+                <input type="text" wire:model="timezone" class="w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-white placeholder:text-slate-600 focus:border-cyan-400 focus:outline-none" placeholder="Asia/Dhaka">
+                @error('timezone') <span class="text-xs text-rose-400">{{ $message }}</span> @enderror
+            </div>
+
+            <div class="pt-4 border-t border-slate-800">
+                <label class="mb-2 block text-sm font-medium text-slate-300">Language</label>
+                <select wire:model="language" class="w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-white focus:border-cyan-400 focus:outline-none">
+                    @foreach($languages as $lang)<option value="{{ $lang->code }}">{{ $lang->name }}</option>@endforeach
+                </select>
+                @error('language') <span class="text-xs text-rose-400">{{ $message }}</span> @enderror
+            </div>
+
+            <div class="mt-8 flex justify-end gap-3 pt-4">
+                <button type="button" wire:click="cancel" class="bc-secondary">Cancel</button>
+                <button type="submit" wire:loading.attr="disabled" class="bc-primary"><span wire:loading.remove wire:target="save">Save tenant</span><span wire:loading wire:target="save">Saving...</span></button>
+            </div>
+        </form>
+    </div>
     @endif
 </div>

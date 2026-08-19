@@ -7,7 +7,9 @@
 **Product Type:** Multi-Tenant SaaS  
 **Primary Languages:** Bangla, English  
 **Primary Currency:** BDT, with multi-currency architecture  
-**Document Status:** Product Blueprint / Development Specification
+**Document Status:** Product Blueprint / Development Specification / Backend Implementation Audit
+**Implementation Audit Date:** 2026-08-16
+**Current Delivery Scope:** Web backend and web admin panels only. Mobile application work is excluded from this audit and roadmap.
 
 ---
 
@@ -1739,3 +1741,186 @@ The highest-risk areas are:
 - Credential security
 
 These must receive priority during architecture and QA.
+
+---
+
+# 58. Current Backend Implementation Status
+
+This section records the verified state of the Laravel web application as of 2026-08-18. It distinguishes working prototypes from production-ready features. The mobile application is intentionally excluded.
+
+## 58.1 Status Definitions
+
+- **Implemented:** A usable backend flow exists and has focused automated coverage.
+- **Partial:** A UI, model, or basic flow exists, but important business rules, isolation, security, or lifecycle behavior is missing.
+- **Not Started:** No meaningful backend implementation exists yet.
+
+## 58.2 Implemented Foundation
+
+| Area | Status | Current State |
+|---|---|---|
+| Local runtime | Implemented | Laravel runs through Herd with PHP 8.4 and DBngin MySQL. |
+| Authentication | Partial | Login, logout, protected routes, session regeneration, and a seeded SaaS admin account exist. Password reset, email verification, 2FA, lockout policy, and account management are missing. |
+| Web interface | Implemented | All current web modules use a consistent responsive operations-console shell with role-aware drawer navigation, accessible forms and dialogs, responsive tables, shared controls, loading states, and mobile layouts. The login screen is responsive and no longer exposes demo credentials or dead recovery links. |
+| SaaS admin navigation | Partial | The Super Admin command center includes SaaS MRR/ARR, real SaaS collected/outstanding/overdue totals, tenant details, SaaS plan management, tenant subscription assignment/history, scheduled subscription renewal/expiry/suspension automation, a SaaS invoice ledger with manual payment settlement and auto-reactivation, non-destructive tenant archive, user activation/deactivation, cross-tenant user/role administration, and a filterable audit viewer. Configurable granular permissions and payment gateway integration are not implemented. |
+| Tenant management | Partial | Tenant CRUD and super-admin-only "Login As" exist. Active tenant resolution scopes all current tenant-owned web modules, and impersonation lifecycle is audited. Subscription and usage administration are missing. |
+| Customer management | Partial | Basic customer CRUD and tenant-safe package subscription assignment exist, including billing cycle, next billing date, pause/cancel behavior, and package price snapshots. The full ISP/customer and connection schema is not implemented. |
+| Package management | Partial | Basic package CRUD supports name, price, bandwidth, shared/dedicated-IP type, active status, and recurring customer assignment. Network profiles, tax, setup fee, and reseller pricing are missing. |
+| Invoice management | Partial | Tenant-safe invoice CRUD uses multiple line items and server-calculated totals. Recurring monthly, quarterly, half-yearly, and yearly invoices generate idempotently, catch up missed periods, and advance billing dates. Settled invoices are protected and overdue transitions run daily. Custom cycles, proration, and advanced adjustments are missing. |
+| Payment management | Partial | Manual payments allocate transactionally to tenant-owned invoices, support partial settlement, prevent overpayment, update paid status, and enforce per-tenant gateway transaction idempotency. Verification, advance credits, refunds, and gateways are missing. |
+| Network inventory | Partial | Basic network device creation and listing exist. No real device communication or topology exists. |
+| Reseller management | Partial | Basic reseller creation and listing exist. Wallet, commission, permissions, customer assignment, and reseller portal are missing. |
+| Reports | Partial | Tenant-aware business reports provide date filters and aggregate collections, invoice value and status, payment methods, customers, online devices, and active resellers. Export, pagination, charts, scheduled generation, and SaaS-owner analytics are missing. |
+| Audit logging | Partial | Authentication, impersonation, platform-user management, and current domain-model create/update/delete events are recorded with actor, tenant, subject, changed fields, IP, and user agent. Super Admin can filter activity by action and tenant. Retention, exports, and broader service/job events are missing. |
+| Automated tests | Partial | The full backend suite passes 45 of 45 tests with 149 assertions covering authentication, CRUD, tenant isolation, role boundaries, Super Admin controls, SaaS plans, tenant subscriptions/history, scheduled subscription renewal/expiry/suspension automation, SaaS invoice/payment ledger idempotency, non-destructive lifecycle actions, impersonation audit, billing integrity, recurring generation, missed-period catch-up, and scheduler idempotency. The production Vite build also passes. Gateways, network adapters, queues, broader browser automation, and failure-path coverage remain missing. |
+
+## 58.3 Critical Architecture Gaps
+
+These items must be completed before the current prototype is treated as a real multi-tenant SaaS.
+
+### P0 Foundation Delivered: Tenant Isolation
+
+Users now have explicit tenant membership and roles. Tenant users resolve only their active assigned tenant; SaaS admins must select an active tenant through authorized impersonation. All currently implemented tenant-owned web modules scope lists, mutations, and customer foreign-key validation to that resolved tenant.
+
+Remaining hardening:
+
+- Extend tenant context to future API requests, queued jobs, scheduled commands, imports, and exports.
+- Add tenant scoping for every new tenant-owned model as it is introduced.
+- Scope future files, credentials, cache keys, generated reports, and integration logs by tenant.
+- Add cross-tenant tests alongside each new resource and integration.
+
+### P0 Foundation Delivered: Authorization and Roles
+
+The backend now distinguishes Super Admin, Tenant Admin, Finance, Support, Network Engineer, and Reseller roles. Current routes and Livewire lifecycle requests enforce a least-privilege module matrix, and tenant management is restricted to Super Admin.
+
+Remaining hardening:
+
+- Add ISP Owner as a distinct role if it must differ from Tenant Admin.
+- Replace the fixed role matrix with configurable granular permissions where required.
+- Build staff invitation, activation, suspension, password reset, and role-management screens.
+- Implement the restricted Reseller portal and reseller-specific policies.
+- Add policy coverage for new models and non-Livewire entry points.
+
+### P0 Foundation Delivered: Safe Tenant Impersonation
+
+"Login As" is restricted to Super Admin, accepts active tenants only, regenerates the session identifier, establishes the tenant query boundary, displays a persistent banner, and records start/end events with actor and tenant identity. Current observed model mutations also preserve the impersonated actor and tenant in the audit log.
+
+Remaining hardening:
+
+- Add a configurable impersonation timeout and privilege-change invalidation.
+- Add an admin audit-log viewer and filters for impersonated actions.
+- Ensure future queued actions preserve both original actor and tenant context.
+
+## 58.4 Remaining MVP Backend Work
+
+### Platform and ISP Structure
+
+- ISP profile and settings.
+- Zones, areas, POPs, routers, OLTs, and device-to-POP assignment.
+- Staff accounts and tenant membership.
+- Feature flags for Basic and Advanced operation modes.
+- Tenant-specific currency, language, branding, billing rules, and supported payment methods.
+
+### Customer Domain
+
+- Stable customer number/ID generation.
+- NID/identification, structured address, photo, and notes.
+- Zone, area, POP, reseller, package, and network-device relationships.
+- PPPoE/DHCP/static-IP/FTTH connection details.
+- IP, MAC, VLAN, ONU/ONT serial, PON port, and credential-reference fields.
+- Billing cycle, fee, due date, grace period, discount, tax, and balance.
+- Complete service state machine: pending, active, grace, suspended, terminated, and blocked.
+- Search, filters, sorting, import/export, archive/history, and duplicate detection.
+
+### Billing and Subscription Domain
+
+- Final billing state machine and immutable financial transaction rules.
+- Custom billing-cycle invoice generation beyond the implemented monthly, quarterly, half-yearly, and yearly cycles.
+- Multiple customer service subscriptions and automatic line-item generation.
+- Advance credits, discounts, late fees, adjustments, reconnection fees, refunds, and write-offs.
+- Tenant-configurable billing date, due date, grace period, suspension date, reminder schedule, tax, and numbering scheme.
+- Full package-change history, effective dates, and proration rules.
+- SaaS plans, tenant subscriptions, trials, limits, usage metering, add-ons, MRR, grace/restriction/suspension, and retention policy.
+
+### Payment Domain
+
+- Provider-side transaction verification and signed idempotency keys for external requests.
+- Refund and reversal workflows.
+- Gateway adapter contract.
+- bKash, Nagad, Rocket, card/bank, QR, POS, and custom gateway integrations as selected for launch.
+- Signed, replay-safe, idempotent webhooks.
+- Gateway reconciliation and failure reporting.
+
+### Network Domain
+
+- Vendor-neutral network adapter interfaces.
+- Encrypted credential storage and secret rotation.
+- MikroTik adapter, followed by selected RADIUS/OLT/DHCP/PPPoE adapters.
+- Queued activate, suspend, reconnect, and profile-change actions.
+- Retry/backoff, idempotency, status history, manual override, and failed-action alerts.
+- Validation safeguards before any customer network action.
+- Real device health, POP status, and online/offline monitoring.
+
+### Reseller Domain
+
+- Reseller authentication and restricted portal.
+- Assigned customer/package boundaries.
+- Prepaid wallet ledger and commission ledger.
+- Balance deduction, top-up, refund, and reconciliation rules.
+- Sales, collection, commission, outstanding, and customer-count reports.
+
+### Support and Communications
+
+- Ticket categories, priorities, assignment, SLA, attachments, comments, internal notes, and lifecycle.
+- Notification templates and event triggers.
+- SMS wallet, provider adapters, usage accounting, and BeeCore margin rules.
+- Transactional and bulk email flows.
+- In-app and push notification records.
+
+### Reporting and SaaS Operations
+
+- Customer, billing, collection, payment-method, network, reseller, finance, and churn reports.
+- Date/tenant/status filters, pagination, CSV/XLSX/PDF exports, and background generation.
+- Real SaaS owner metrics: tenants, trials, MRR, churn, conversion, add-on revenue, usage, storage, and system health.
+- System settings, integrations, support operations, usage views, and subscription administration.
+
+### Localization, Currency, and White Label
+
+- Replace hard-coded UI strings with translation keys.
+- Bangla and English web translations.
+- Locale-aware dates, numbers, and currency formatting.
+- Tenant-selectable currency and timezone behavior throughout billing.
+- Custom logo, colors, domain, login page, email sender, and supported SMS sender settings.
+
+### API, Security, and Reliability
+
+- Versioned `/api/v1` endpoints with authentication, policies, tenant isolation, pagination, filtering, sorting, and error standards.
+- Rate limiting and API credential management.
+- Audit logs for authentication, CRUD, billing, payment, network, permission, integration, and configuration actions.
+- 2FA, password reset, email verification, secure account recovery, and session/device management.
+- Encrypted secrets, secure uploads, backup/restore, disaster recovery, and retention procedures.
+- Queue workers, scheduler, monitoring, failed-job tooling, retries, alerts, and health checks.
+
+## 58.5 Non-MVP Backend Work
+
+- Advanced RADIUS and OLT automation.
+- White-label/custom-domain automation.
+- Media/movie server and licensed content workflows.
+- Advanced analytics, anomaly detection, predictive churn, and AI support features.
+- International gateways and additional locales.
+
+## 58.6 Recommended Backend Delivery Order
+
+1. Finalize schema, tenant resolution, user membership, role/permission matrix, and core state machines.
+2. Implement and test enforced tenant isolation plus secure SaaS-admin impersonation.
+3. Complete ISP structure, customer connection data, packages, and subscriptions.
+4. Complete invoice line items, billing schedules, balances, and manual payment allocation.
+5. Add audit logs, notifications, queues, scheduler, and failure handling.
+6. Implement network adapter contracts and the first selected network integration.
+7. Implement the first selected payment gateway and idempotent webhooks.
+8. Complete reseller wallet/commission behavior, support tickets, and operational reports.
+9. Add localization, multi-currency behavior, SaaS subscriptions, usage metering, and white-label settings.
+10. Expose and secure the versioned API, then perform security, performance, backup, and recovery testing.
+
+## 58.7 Current Readiness Assessment
+
+The current web application now has a tested tenant-isolation, fixed-role authorization, secure impersonation, and audit foundation. It is suitable for controlled workflow development, but it is **not ready for real payments or network control** until financial-integrity rules, gateway/webhook handling, network adapters, queues, monitoring, backups, and the remaining security hardening above are implemented and tested.

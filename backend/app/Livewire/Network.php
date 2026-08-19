@@ -2,14 +2,20 @@
 namespace App\Livewire;
 
 use App\Models\Network as NetworkModel;
-use App\Models\Tenant;
+use App\Models\User;
+use App\Support\AuthorizesRoles;
+use App\Support\CurrentTenant;
 use Livewire\Component;
 use Livewire\WithPagination;
 use Livewire\Attributes\Layout;
 
 #[Layout('components.layouts.app')]
 class Network extends Component {
-    use WithPagination;
+    use AuthorizesRoles, WithPagination;
+
+    public function boot(): void {
+        $this->authorizeRoles(User::ROLE_SUPER_ADMIN, User::ROLE_TENANT_ADMIN, User::ROLE_NETWORK_ENGINEER);
+    }
     
     public $showModal = false;
     public $name, $ip_address, $device_type = 'mikrotik', $location, $status = 'online';
@@ -29,11 +35,10 @@ class Network extends Component {
 
     public function save() {
         $this->validate();
-        $tenant = Tenant::first();
-        if(!$tenant) return;
+        $tenantId = app(CurrentTenant::class)->id();
 
         NetworkModel::create([
-            'tenant_id' => $tenant->id,
+            'tenant_id' => $tenantId,
             'name' => $this->name,
             'ip_address' => $this->ip_address,
             'device_type' => $this->device_type,
@@ -46,7 +51,7 @@ class Network extends Component {
 
     public function render() {
         return view('livewire.network', [
-            'devices' => NetworkModel::latest()->paginate(10)
+            'devices' => NetworkModel::query()->where('tenant_id', app(CurrentTenant::class)->id())->latest()->paginate(10)
         ]);
     }
 }

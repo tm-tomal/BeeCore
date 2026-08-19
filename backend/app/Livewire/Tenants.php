@@ -2,6 +2,8 @@
 
 namespace App\Livewire;
 
+use App\Models\AuditLog;
+use App\Models\Language;
 use App\Models\Tenant;
 use Illuminate\Support\Str;
 use Livewire\Component;
@@ -13,7 +15,7 @@ class Tenants extends Component
 {
     use WithPagination;
 
-    public $showModal = false;
+    public $viewMode = 'index'; // Change to viewMode instead of showModal
     public $isEditing = false;
     public $tenantId;
 
@@ -22,6 +24,7 @@ class Tenants extends Component
     public $status = 'active';
     public $currency = 'BDT';
     public $timezone = 'Asia/Dhaka';
+    public $language = 'en';
 
     protected function rules() {
         return [
@@ -30,6 +33,7 @@ class Tenants extends Component
             'status' => 'required|in:active,suspended',
             'currency' => 'required|string|max:10',
             'timezone' => 'required|string|max:50',
+            'language' => 'required|string|max:10|exists:languages,code',
         ];
     }
 
@@ -42,14 +46,16 @@ class Tenants extends Component
 
     public function create()
     {
+        $this->assertSuperAdmin();
         $this->resetValidation();
-        $this->reset(['name', 'slug', 'status', 'currency', 'timezone', 'tenantId']);
+        $this->reset(['name', 'slug', 'status', 'currency', 'timezone', 'language', 'tenantId']);
         $this->isEditing = false;
-        $this->showModal = true;
+        $this->viewMode = 'create';
     }
 
     public function edit($id)
     {
+        $this->assertSuperAdmin();
         $this->resetValidation();
         $tenant = Tenant::findOrFail($id);
         $this->tenantId = $tenant->id;
@@ -58,13 +64,20 @@ class Tenants extends Component
         $this->status = $tenant->status;
         $this->currency = $tenant->currency;
         $this->timezone = $tenant->timezone;
-        
+        $this->language = $tenant->language;
+
         $this->isEditing = true;
-        $this->showModal = true;
+        $this->viewMode = 'create';
+    }
+
+    public function cancel()
+    {
+        $this->viewMode = 'index';
     }
 
     public function save()
     {
+        $this->assertSuperAdmin();
         $this->validate();
 
         if ($this->isEditing) {
@@ -74,6 +87,7 @@ class Tenants extends Component
                 'status' => $this->status,
                 'currency' => $this->currency,
                 'timezone' => $this->timezone,
+                'language' => $this->language,
             ]);
         } else {
             Tenant::create([
@@ -82,23 +96,47 @@ class Tenants extends Component
                 'status' => $this->status,
                 'currency' => $this->currency,
                 'timezone' => $this->timezone,
+                'language' => $this->language,
             ]);
         }
 
-        $this->showModal = false;
+        $this->viewMode = 'index';
         session()->flash('message', $this->isEditing ? 'Tenant updated successfully.' : 'Tenant created successfully.');
     }
 
     public function delete($id)
     {
-        Tenant::findOrFail($id)->delete();
-        session()->flash('message', 'Tenant deleted successfully.');
+        $this->assertSuperAdmin();
+        $tenant = Tenant::query()->whereNull('archived_at')->findOrFail($id);
+        $tenant->update(['status' => 'inactive', 'archived_at' => now()]);
+        AuditLog::record('tenant.archived', $tenant, tenantId: $tenant->id);
+        session()->flash('message', 'Tenant archived successfully.');
+    }
+
+    public function impersonate($id)
+    {
+        $this->assertSuperAdmin();
+        $tenant = Tenant::query()->where('status', 'active')->findOrFail($id);
+        session()->put('impersonated_tenant_id', $tenant->id);
+        session()->put('impersonated_tenant_name', $tenant->name);
+        session()->migrate(true);
+        AuditLog::record('tenant.impersonation.started', $tenant, tenantId: $tenant->id);
+
+        return redirect()->route('dashboard');
     }
 
     public function render()
     {
+        $this->assertSuperAdmin();
+
         return view('livewire.tenants', [
-            'tenants' => Tenant::latest()->paginate(10)
+            'tenants' => Tenant::query()->whereNull('archived_at')->latest()->paginate(10),
+            'languages' => Language::query()->where('is_active', true)->orderBy('name')->get(),
         ]);
+    }
+
+    private function assertSuperAdmin(): void
+    {
+        abort_unless(auth()->user()?->isSuperAdmin(), 403);
     }
 }

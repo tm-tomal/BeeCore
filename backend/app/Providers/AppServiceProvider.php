@@ -2,6 +2,16 @@
 
 namespace App\Providers;
 
+use App\Models\Customer;
+use App\Models\CustomerSubscription;
+use App\Models\Invoice;
+use App\Models\InvoiceItem;
+use App\Models\Network;
+use App\Models\Package;
+use App\Models\Payment;
+use App\Models\Reseller;
+use App\Models\Tenant;
+use App\Observers\AuditableObserver;
 use Illuminate\Support\ServiceProvider;
 
 class AppServiceProvider extends ServiceProvider
@@ -19,6 +29,8 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
-        //
+        foreach ([Tenant::class, Customer::class, CustomerSubscription::class, Invoice::class, InvoiceItem::class, Package::class, Payment::class, Network::class, Reseller::class] as $model) {
+            $model::observe(AuditableObserver::class);
+        }
     }
 }
