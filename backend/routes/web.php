@@ -2,7 +2,10 @@
 
 use App\Livewire\Dashboard;
 use App\Models\AuditLog;
+use App\Models\BlockedIp;
+use App\Models\LoginAttempt;
 use App\Models\Tenant;
+use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
@@ -18,7 +21,22 @@ Route::middleware('guest')->group(function () {
             'password' => ['required'],
         ]);
 
-        if (Auth::attempt([...$credentials, 'status' => 'active'], $request->boolean('remember'))) {
+        if (BlockedIp::where('ip_address', $request->ip())->exists()) {
+            return back()->withErrors(['email' => 'This IP address has been blocked from signing in.'])->onlyInput('email');
+        }
+
+        $success = Auth::attempt([...$credentials, 'status' => 'active'], $request->boolean('remember'));
+
+        LoginAttempt::create([
+            'email' => $credentials['email'],
+            'ip_address' => $request->ip(),
+            'user_agent' => $request->userAgent(),
+            'successful' => $success,
+            'user_id' => $success ? Auth::id() : User::where('email', $credentials['email'])->value('id'),
+            'created_at' => now(),
+        ]);
+
+        if ($success) {
             $request->session()->regenerate();
             AuditLog::record('auth.login');
 
@@ -45,6 +63,7 @@ Route::middleware('auth')->group(function () {
     });
 
     Route::get('/dashboard', Dashboard::class)->name('dashboard');
+    Route::get('/my-profile', App\Livewire\MyProfile::class)->name('my-profile');
 
     Route::middleware('super-admin')->group(function () {
         Route::get('/tenants', App\Livewire\Tenants::class)->name('tenants');
@@ -62,7 +81,22 @@ Route::middleware('auth')->group(function () {
         Route::get('/white-label', App\Livewire\WhiteLabel::class)->name('white-label');
         Route::get('/customer-app', App\Livewire\CustomerApp::class)->name('customer-app');
         Route::get('/media-server', App\Livewire\MediaServerConsole::class)->name('media-server');
+        Route::get('/sms-management', App\Livewire\SmsManagement::class)->name('sms-management');
+        Route::get('/email-management', App\Livewire\EmailManagement::class)->name('email-management');
+        Route::get('/notifications', App\Livewire\Notifications::class)->name('notifications');
+        Route::get('/announcements', App\Livewire\Announcements::class)->name('announcements');
+        Route::get('/network-integrations', App\Livewire\NetworkIntegrations::class)->name('network-integrations');
+        Route::get('/api-management', App\Livewire\ApiManagement::class)->name('api-management');
+        Route::get('/system-settings', App\Livewire\SystemSettings::class)->name('system-settings');
+        Route::get('/system-health', App\Livewire\SystemHealth::class)->name('system-health');
+        Route::get('/queue-jobs', App\Livewire\QueueJobs::class)->name('queue-jobs');
+        Route::get('/data-management', App\Livewire\DataManagement::class)->name('data-management');
+        Route::get('/support-tickets', App\Livewire\SupportTickets::class)->name('support-tickets');
+        Route::get('/reports-analytics', App\Livewire\ReportsAnalytics::class)->name('reports-analytics');
+        Route::get('/platform-analytics', App\Livewire\PlatformAnalytics::class)->name('platform-analytics');
         Route::get('/platform-users', App\Livewire\PlatformUsers::class)->name('platform-users');
+        Route::get('/roles-permissions', App\Livewire\RolesPermissions::class)->name('roles-permissions');
+        Route::get('/security-center', App\Livewire\SecurityCenter::class)->name('security-center');
         Route::get('/audit-activity', App\Livewire\AuditActivity::class)->name('audit-activity');
         Route::get('/super-admin/{slug}', App\Livewire\ComingSoon::class)->name('super-admin.coming-soon');
         Route::get('/leave-impersonation', function (Request $request) {

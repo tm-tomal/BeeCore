@@ -4,12 +4,19 @@ use Illuminate\Foundation\Inspiring;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Schedule;
 use App\Models\Invoice;
+use App\Models\SystemSetting;
 use App\Services\RecurringInvoiceGenerator;
 use App\Services\SaasSubscriptionBilling;
 
 Artisan::command('inspire', function () {
     $this->comment(Inspiring::quote());
 })->purpose('Display an inspiring quote');
+
+Artisan::command('system:heartbeat', function () {
+    SystemSetting::set('scheduler_last_ran_at', now()->toISOString());
+    $this->info('Scheduler heartbeat recorded.');
+})->purpose('Record a scheduler heartbeat used by the System health console');
+
 
 Artisan::command('billing:mark-overdue', function () {
     $updated = 0;
@@ -49,3 +56,4 @@ Artisan::command('saas:process-subscriptions', function (SaasSubscriptionBilling
 Schedule::command('billing:generate-recurring')->dailyAt('00:01')->withoutOverlapping();
 Schedule::command('billing:mark-overdue')->dailyAt('00:05')->withoutOverlapping();
 Schedule::command('saas:process-subscriptions')->dailyAt('00:10')->withoutOverlapping();
+Schedule::command('system:heartbeat')->everyMinute()->withoutOverlapping();

@@ -3,6 +3,7 @@
 namespace App\Livewire;
 
 use App\Models\AuditLog;
+use App\Models\Announcement;
 use App\Models\Customer;
 use App\Models\Invoice;
 use App\Models\Network;
@@ -67,6 +68,7 @@ class Dashboard extends Component
             'recentAuditActivity' => $tenantId === null
                 ? AuditLog::query()->with(['user', 'tenant'])->latest('created_at')->limit(7)->get()
                 : collect(),
+            'activeAnnouncements' => Announcement::query()->activeFor($tenantId)->latest('published_at')->limit(3)->get(),
         ]);
     }
 }

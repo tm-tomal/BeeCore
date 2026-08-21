@@ -4,6 +4,18 @@
         <div class="flex items-center gap-2 text-xs text-slate-500"><span class="h-2 w-2 rounded-full bg-emerald-400"></span>Updated {{ now()->format('M d, H:i') }}</div>
     </header>
 
+    @if($activeAnnouncements->isNotEmpty())
+        <section class="space-y-3">
+            @foreach($activeAnnouncements as $announcement)
+                <div class="border border-teal-300/25 bg-teal-300/10 p-4" style="border-radius:6px">
+                    <div class="flex items-center gap-2 text-xs font-bold uppercase tracking-wide text-teal-300"><span aria-hidden="true">📣</span>{{ ucfirst($announcement->type) }} announcement</div>
+                    <p class="mt-1 font-bold text-white">{{ $announcement->title }}</p>
+                    <p class="mt-1 text-sm text-slate-300">{{ $announcement->body }}</p>
+                </div>
+            @endforeach
+        </section>
+    @endif
+
     <section class="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         @if($isSaasView)
             <div class="bc-panel p-5" style="border-radius: 8px"><p class="text-xs font-bold uppercase text-slate-500">Active tenants</p><p class="mt-4 text-3xl font-black text-white">{{ number_format($metrics['tenants']) }}</p><p class="mt-3 text-sm text-amber-300">{{ $metrics['trial_tenants'] }} trial · {{ $metrics['suspended_tenants'] }} suspended</p></div>

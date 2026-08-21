@@ -11,8 +11,8 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 
-#[Fillable(['tenant_id', 'name', 'email', 'password', 'role', 'status'])]
-#[Hidden(['password', 'remember_token'])]
+#[Fillable(['tenant_id', 'name', 'email', 'password', 'role', 'status', 'language', 'timezone', 'two_factor_enabled', 'two_factor_secret', 'notification_preferences'])]
+#[Hidden(['password', 'remember_token', 'two_factor_secret'])]
 class User extends Authenticatable
 {
     /** @use HasFactory<UserFactory> */
@@ -45,6 +45,9 @@ class User extends Authenticatable
         return [
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
+            'two_factor_enabled' => 'boolean',
+            'two_factor_secret' => 'encrypted',
+            'notification_preferences' => 'array',
         ];
     }
 }
