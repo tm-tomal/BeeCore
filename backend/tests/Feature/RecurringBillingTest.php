@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Livewire\Customers;
 use App\Models\Customer;
 use App\Models\CustomerSubscription;
+use App\Models\Invoice;
 use App\Models\Package;
 use App\Models\Tenant;
 use App\Models\User;
@@ -111,6 +112,61 @@ class RecurringBillingTest extends TestCase
 
         $this->assertDatabaseCount('invoices', 3);
         $this->assertSame('2026-09-01', $subscription->fresh()->next_billing_date->toDateString());
+    }
+
+    public function test_tenant_admin_can_trigger_recurring_billing_from_console(): void
+    {
+        [$tenant, $user] = $this->tenantActor('console');
+        [$otherTenant, $otherUser] = $this->tenantActor('other-console');
+
+        $package = $this->package($tenant, 'Console Fiber', 1000);
+        $customer = $this->customer($tenant, 'console@test.com');
+        $subscription = $this->subscription($tenant, $customer, $package, 'monthly', '2026-06-01');
+
+        // A due subscription in another workspace must stay untouched.
+        $otherPackage = $this->package($otherTenant, 'Other Fiber', 900);
+        $otherCustomer = $this->customer($otherTenant, 'other@test.com');
+        $this->subscription($otherTenant, $otherCustomer, $otherPackage, 'monthly', '2026-06-01');
+
+        $this->travelTo('2026-08-17');
+
+        Livewire::actingAs($user)
+            ->test(\App\Livewire\Billing::class)
+            ->call('generateRecurring')
+            ->assertHasNoErrors();
+
+        // Three missed monthly periods (Jun, Jul, Aug) generated for this tenant only.
+        $this->assertSame(3, Invoice::query()->where('tenant_id', $tenant->id)->count());
+        $this->assertSame(0, Invoice::query()->where('tenant_id', $otherTenant->id)->count());
+        $this->assertSame('2026-09-01', $subscription->fresh()->next_billing_date->toDateString());
+
+        // Running it again is idempotent: customers already billed are skipped.
+        Livewire::actingAs($user)
+            ->test(\App\Livewire\Billing::class)
+            ->call('generateRecurring')
+            ->assertHasNoErrors();
+
+        $this->assertSame(3, Invoice::query()->where('tenant_id', $tenant->id)->count());
+    }
+
+    public function test_tenant_grace_days_apply_to_recurring_invoice_due_date(): void
+    {
+        [$tenant, $user] = $this->tenantActor('grace');
+        $tenant->update(['settings' => ['billing' => ['grace_days' => 3]]]);
+
+        $package = $this->package($tenant, 'Grace Fiber', 1000);
+        $customer = $this->customer($tenant, 'grace@test.com');
+        $subscription = $this->subscription($tenant, $customer, $package, 'monthly', '2026-08-01');
+
+        $this->travelTo('2026-08-17');
+
+        Livewire::actingAs($user)
+            ->test(\App\Livewire\Billing::class)
+            ->call('generateRecurring')
+            ->assertHasNoErrors();
+
+        $invoice = $subscription->invoices()->firstOrFail();
+        $this->assertSame('2026-08-04', $invoice->due_date->toDateString());
     }
 
     private function tenantActor(string $slug): array

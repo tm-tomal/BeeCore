@@ -8,6 +8,9 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class Tenant extends Model
 {
+    public const MODE_AUTOMATIC = 'automatic';
+    public const MODE_MANUAL = 'manual';
+
     protected $fillable = [
         'name',
         'slug',
@@ -15,6 +18,7 @@ class Tenant extends Model
         'currency',
         'timezone',
         'language',
+        'operation_mode',
         'settings',
         'archived_at',
         'company_legal_name',
@@ -69,6 +73,26 @@ class Tenant extends Model
     public function branding(): HasOne
     {
         return $this->hasOne(TenantBranding::class);
+    }
+
+    public function isAutomatic(): bool
+    {
+        return ($this->operation_mode ?? self::MODE_AUTOMATIC) === self::MODE_AUTOMATIC;
+    }
+
+    public function isManual(): bool
+    {
+        return ! $this->isAutomatic();
+    }
+
+    public function operationModeLabel(): string
+    {
+        return $this->isAutomatic() ? 'Automatic' : 'Manual';
+    }
+
+    public function billingSetting(string $key, mixed $default = null): mixed
+    {
+        return data_get($this->settings['billing'] ?? [], $key, $default);
     }
 
     public function hasFeature(string $key): bool

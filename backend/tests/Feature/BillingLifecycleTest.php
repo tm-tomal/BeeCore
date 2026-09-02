@@ -126,6 +126,56 @@ class BillingLifecycleTest extends TestCase
         ]);
     }
 
+    public function test_finance_user_can_open_billing_and_payment_create_forms(): void
+    {
+        [$tenant, $user, $customer] = $this->billingActor('forms');
+        $this->invoice($tenant, $customer, 500, 'INV-FORM');
+
+        Livewire::actingAs($user)
+            ->test(Billing::class)
+            ->call('create')
+            ->assertOk()
+            ->assertSee('Generate invoice')
+            ->assertDontSee('Array');
+
+        Livewire::actingAs($user)
+            ->test(Payments::class)
+            ->call('create')
+            ->assertOk()
+            ->assertSee('Record payment')
+            ->assertDontSee('Array');
+    }
+
+    public function test_invoice_print_page_renders_clean_branded_view(): void
+    {
+        [$tenant, $user, $customer] = $this->billingActor('print');
+        $tenant->update(['settings' => ['collection' => [
+            'mode' => 'own',
+            'methods' => ['bkash' => ['enabled' => true, 'number' => '01700000000']],
+        ]]]);
+        $invoice = $this->invoice($tenant, $customer, 500, 'INV-PRINT');
+
+        $this->actingAs($user)
+            ->get(route('billing.invoice-print', $invoice))
+            ->assertOk()
+            ->assertSee('INV-PRINT-'.$tenant->id)
+            ->assertSee('Print / Save as PDF')
+            ->assertSee(ucfirst('print'))
+            ->assertSee('Payment instructions')
+            ->assertSee('01700000000');
+    }
+
+    public function test_invoice_cannot_be_printed_across_tenants(): void
+    {
+        [$tenant, $user] = $this->billingActor('owner-print');
+        [$otherTenant, $otherUser, $otherCustomer] = $this->billingActor('foreign');
+        $invoice = $this->invoice($otherTenant, $otherCustomer, 500, 'INV-FOREIGN');
+
+        $this->actingAs($user)
+            ->get(route('billing.invoice-print', $invoice))
+            ->assertNotFound();
+    }
+
     private function billingActor(string $slug): array
     {
         $tenant = Tenant::create([

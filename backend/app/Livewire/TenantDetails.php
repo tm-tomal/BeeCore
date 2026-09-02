@@ -116,7 +116,8 @@ class TenantDetails extends Component
             $subscription = $invoice->subscription;
             $stillUnpaid = $subscription->invoices()->whereIn('status', ['pending', 'overdue'])->where('id', '!=', $invoice->id)->exists();
 
-            if (!$stillUnpaid && in_array($subscription->status, ['past_due', 'suspended'], true)) {
+            if (!$stillUnpaid && in_array($subscription->status, ['pending_approval', 'past_due', 'suspended'], true)) {
+                $wasPendingApproval = $subscription->status === 'pending_approval';
                 $fromStatus = $subscription->status;
                 $subscription->update(['status' => 'active']);
                 if ($this->tenant->status === 'suspended') {
@@ -125,7 +126,7 @@ class TenantDetails extends Component
                 TenantSubscriptionEvent::create([
                     'tenant_subscription_id' => $subscription->id,
                     'user_id' => auth()->id(),
-                    'event' => 'subscription.reactivated',
+                    'event' => $wasPendingApproval ? 'subscription.approved' : 'subscription.reactivated',
                     'from_status' => $fromStatus,
                     'to_status' => 'active',
                     'metadata' => null,
@@ -148,9 +149,17 @@ class TenantDetails extends Component
             'staff' => $this->tenant->users()->where('status', 'active')->count(),
             'resellers' => $this->tenant->resellers()->count(),
         ];
+        $eligibleModes = $this->tenant->isAutomatic() ? ['automatic', 'both'] : ['manual', 'both'];
 
         return view('livewire.tenant-details', [
-            'plans' => SaasPlan::query()->where('is_active', true)->whereNull('archived_at')->orderBy('monthly_price')->get(),
+            'plans' => SaasPlan::query()
+                ->where('is_active', true)
+                ->whereNull('archived_at')
+                ->where(fn ($query) => $query
+                    ->whereIn('operation_mode', $eligibleModes)
+                    ->when($subscription, fn ($query) => $query->orWhere('id', $subscription->saas_plan_id)))
+                ->orderBy('monthly_price')
+                ->get(),
             'subscription' => $subscription?->load(['plan', 'events']),
             'invoices' => $subscription?->invoices()->latest('period_start')->limit(12)->get() ?? collect(),
             'counts' => $counts,

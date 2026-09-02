@@ -1,134 +1,265 @@
-<div>
-    <header class="mb-6 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-        <div>
-            <p class="text-xs font-bold uppercase tracking-[0.16em] text-teal-300">Service catalog</p>
-            <h1 class="mt-2 text-2xl font-black text-white sm:text-3xl">Packages & IP plans</h1>
-            <p class="mt-2 text-sm text-slate-500">Define recurring package prices and connection profiles.</p>
+<div class="space-y-6">
+    @if($viewMode === 'index')
+        <!-- Page header -->
+        <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+                <p class="text-theme-xs font-semibold uppercase tracking-wider text-brand-500 dark:text-brand-400">Service catalog</p>
+                <h1 class="mt-1 text-title-sm font-bold text-gray-800 dark:text-white/90">Packages & IP plans</h1>
+                <p class="mt-1 text-theme-sm text-gray-500 dark:text-gray-400">Define recurring package prices and connection profiles.</p>
+            </div>
+            <div class="flex flex-wrap items-center gap-3">
+                <button wire:click="create" class="inline-flex items-center justify-center gap-2 rounded-lg bg-brand-500 px-4 py-2.5 text-theme-sm font-medium text-white shadow-theme-xs transition hover:bg-brand-600 disabled:cursor-not-allowed disabled:opacity-50">
+                    <svg class="size-4 stroke-current" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>
+                    Add Package
+                </button>
+            </div>
         </div>
-        <div class="flex items-center gap-4">
-            <button wire:click="create" class="bc-primary">
-                Add Package
-            </button>
-        </div>
-    </header>
 
-    @if (session()->has('message'))
-        <div class="mb-6 rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-4 text-emerald-400">
-            {{ session('message') }}
-        </div>
-    @endif
-
-    <div class="bc-table-wrap">
-        <table class="bc-table">
-            <thead class="border-b border-slate-800 bg-slate-950/50 text-slate-400">
-                <tr>
-                    <th class="px-6 py-4 font-semibold uppercase tracking-wider">Plan Name</th>
-                    <th class="px-6 py-4 font-semibold uppercase tracking-wider">Bandwidth</th>
-                    <th class="px-6 py-4 font-semibold uppercase tracking-wider">Type</th>
-                    <th class="px-6 py-4 font-semibold uppercase tracking-wider">Price (৳)</th>
-                    <th class="px-6 py-4 font-semibold uppercase tracking-wider">Status</th>
-                    <th class="px-6 py-4 text-right font-semibold uppercase tracking-wider">Actions</th>
-                </tr>
-            </thead>
-            <tbody class="divide-y divide-slate-800 text-slate-300">
-                @forelse($packages as $package)
-                    <tr class="transition-colors hover:bg-slate-800/50">
-                        <td class="px-6 py-4 font-medium text-white">{{ $package->name }}</td>
-                        <td class="px-6 py-4 text-slate-400">{{ $package->bandwidth ?: 'N/A' }}</td>
-                        <td class="px-6 py-4">
-                            @if($package->type === 'dedicated_ip')
-                                <span class="rounded bg-violet-500/15 px-2 py-1 text-xs font-semibold text-violet-400">Dedicated IP</span>
-                            @else
-                                <span class="rounded bg-slate-800 px-2 py-1 text-xs font-semibold text-slate-300">Shared/PPPoE</span>
-                            @endif
-                        </td>
-                        <td class="px-6 py-4 font-medium text-white">{{ number_format($package->price, 2) }}</td>
-                        <td class="px-6 py-4">
-                            @if($package->is_active)
-                                <span class="rounded-full bg-emerald-500/15 px-2.5 py-1 text-xs font-semibold text-emerald-400">Active</span>
-                            @else
-                                <span class="rounded-full bg-rose-500/15 px-2.5 py-1 text-xs font-semibold text-rose-400">Inactive</span>
-                            @endif
-                        </td>
-                        <td class="px-6 py-4 text-right">
-                            <button wire:click="edit({{ $package->id }})" class="mr-3 text-cyan-400 hover:text-cyan-300">Edit</button>
-                            <button wire:click="delete({{ $package->id }})" wire:confirm="Are you sure you want to delete this plan?" class="text-rose-400 hover:text-rose-300">Delete</button>
-                        </td>
-                    </tr>
-                @empty
-                    <tr>
-                        <td colspan="6" class="px-6 py-8 text-center text-slate-500">No packages created yet.</td>
-                    </tr>
-                @endforelse
-            </tbody>
-        </table>
-        
-        @if($packages->hasPages())
-            <div class="border-t border-slate-800 p-4">
-                {{ $packages->links() }}
+        @if (session()->has('message'))
+            <div class="flex items-start gap-3 rounded-xl border border-success-200 bg-success-50 px-4 py-3 dark:border-success-500/20 dark:bg-success-500/10">
+                <svg class="mt-0.5 size-5 shrink-0 stroke-success-500" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+                <p class="text-theme-sm text-success-700 dark:text-success-300">{{ session('message') }}</p>
             </div>
         @endif
-    </div>
 
-    <!-- Create / Edit Modal -->
-    @if($showModal)
-        <div class="fixed inset-0 z-[60] flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-labelledby="package-dialog-title">
-            <div class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm" wire:click="$set('showModal', false)"></div>
-            <div class="bc-panel relative max-h-[92vh] w-full max-w-lg overflow-y-auto p-5 sm:p-7" style="border-radius: 8px">
-                <div class="mb-6 flex items-center justify-between">
-                    <h3 id="package-dialog-title" class="text-xl font-bold text-white">{{ $isEditing ? 'Edit package' : 'Create package' }}</h3>
-                    <button wire:click="$set('showModal', false)" class="text-slate-400 hover:text-white">
-                        <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
-                    </button>
+        @if (session()->has('error'))
+            <div class="flex items-start gap-3 rounded-xl border border-error-200 bg-error-50 px-4 py-3 dark:border-error-500/20 dark:bg-error-500/10">
+                <svg class="mt-0.5 size-5 shrink-0 stroke-error-500" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+                <p class="text-theme-sm text-error-700 dark:text-error-300">{{ session('error') }}</p>
+            </div>
+        @endif
+
+        <!-- Packages table -->
+        <x-table heading="All packages" :description="'Showing '.number_format($packages->total()).' package'.($packages->total() === 1 ? '' : 's')" :paginator="$packages">
+            <x-slot:toolbar>
+                <div class="flex flex-wrap items-center gap-2">
+                    <div class="relative">
+                        <span class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3.5 text-gray-400 dark:text-gray-500">
+                            <svg class="size-4 stroke-current" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                        </span>
+                        <input type="search" wire:model.live.debounce.300ms="search" placeholder="Search packages..." class="h-10 w-56 rounded-lg border border-gray-300 bg-transparent py-2 pl-10 pr-3 text-theme-sm text-gray-800 shadow-theme-xs placeholder:text-gray-400 focus:border-brand-300 focus:ring-3 focus:ring-brand-500/10 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30 dark:focus:border-brand-800">
+                    </div>
                 </div>
-                
-                <form wire:submit="save" class="space-y-4">
-                    <div>
-                        <label class="mb-2 block text-sm font-medium text-slate-300">Package Name</label>
-                        <input type="text" wire:model="name" class="w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-white placeholder:text-slate-600 focus:border-cyan-400 focus:outline-none" placeholder="10 Mbps Ultimate">
-                        @error('name') <span class="text-xs text-rose-400">{{ $message }}</span> @enderror
-                    </div>
-                    
-                    <div class="grid gap-4 sm:grid-cols-2">
-                        <div>
-                            <label class="mb-2 block text-sm font-medium text-slate-300">Price (BDT)</label>
-                            <input type="number" step="0.01" wire:model="price" class="w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-white placeholder:text-slate-600 focus:border-cyan-400 focus:outline-none" placeholder="1000.00">
-                            @error('price') <span class="text-xs text-rose-400">{{ $message }}</span> @enderror
-                        </div>
-                        
-                        <div>
-                            <label class="mb-2 block text-sm font-medium text-slate-300">Bandwidth</label>
-                            <input type="text" wire:model="bandwidth" class="w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-white placeholder:text-slate-600 focus:border-cyan-400 focus:outline-none" placeholder="10 Mbps">
-                            @error('bandwidth') <span class="text-xs text-rose-400">{{ $message }}</span> @enderror
-                        </div>
-                    </div>
+            </x-slot:toolbar>
 
-                    <div class="grid gap-4 sm:grid-cols-2">
-                        <div>
-                            <label class="mb-2 block text-sm font-medium text-slate-300">Connection Type</label>
-                            <select wire:model="type" class="w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-white focus:border-cyan-400 focus:outline-none">
-                                <option value="shared">Shared / PPPoE</option>
-                                <option value="dedicated_ip">Dedicated IP</option>
-                            </select>
-                            @error('type') <span class="text-xs text-rose-400">{{ $message }}</span> @enderror
-                        </div>
-                        
-                        <div>
-                            <label class="mb-2 block text-sm font-medium text-slate-300">Status</label>
-                            <div class="mt-3 flex items-center">
-                                <input type="checkbox" wire:model="is_active" id="is_active" class="h-5 w-5 rounded border-slate-600 bg-slate-950 text-cyan-500 focus:ring-cyan-500">
-                                <label for="is_active" class="ml-2 text-sm text-slate-300">Active Package</label>
-                            </div>
-                            @error('is_active') <span class="text-xs text-rose-400">{{ $message }}</span> @enderror
-                        </div>
-                    </div>
+            <table class="min-w-full">
+                <thead class="border-b border-gray-100 bg-gray-50/50 dark:border-gray-800 dark:bg-white/[0.02]">
+                    <tr>
+                        <th class="px-5 py-3.5 text-left text-theme-xs font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">Plan name</th>
+                        <th class="px-5 py-3.5 text-left text-theme-xs font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">Connection</th>
+                        <th class="px-5 py-3.5 text-right text-theme-xs font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">Price</th>
+                        <th class="px-5 py-3.5 text-right text-theme-xs font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">Cost</th>
+                        <th class="px-5 py-3.5 text-left text-theme-xs font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">Margin</th>
+                        <th class="px-5 py-3.5 text-left text-theme-xs font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">Status</th>
+                        <th class="px-5 py-3.5 text-right text-theme-xs font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">Actions</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-100 dark:divide-gray-800">
+                    @forelse($packages as $package)
+                        @php
+                            $hasCost = $package->cost !== null;
+                            $profit = $hasCost ? (float) $package->price - (float) $package->cost : null;
+                            $marginPct = ($hasCost && (float) $package->price > 0) ? round($profit / (float) $package->price * 100) : null;
+                        @endphp
+                        <tr class="transition-colors hover:bg-gray-50/70 dark:hover:bg-white/[0.02]">
+                            <td class="px-5 py-4">
+                                <div class="flex items-center gap-3">
+                                    <span class="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-brand-50 text-brand-600 dark:bg-brand-500/15 dark:text-brand-400">
+                                        <svg class="size-5 stroke-current" viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
+                                    </span>
+                                    <div class="min-w-0">
+                                        <div class="truncate text-theme-sm font-medium text-gray-800 dark:text-white/90">{{ $package->name }}</div>
+                                        <div class="mt-0.5 flex flex-wrap items-center gap-1.5 text-theme-xs text-gray-500 dark:text-gray-400">
+                                            <span>{{ $package->bandwidth ?: 'Bandwidth not set' }}</span>
+                                            @if($package->active_subscribers > 0)
+                                                <span class="text-gray-300 dark:text-gray-700">•</span>
+                                                <span>{{ $package->active_subscribers }} active</span>
+                                            @endif
+                                        </div>
+                                    </div>
+                                </div>
+                            </td>
+                            <td class="px-5 py-4">
+                                <span class="inline-flex rounded-md px-2 py-1 text-theme-xs font-medium {{ $package->type === 'dedicated_ip' ? 'bg-brand-50 text-brand-600 dark:bg-brand-500/15 dark:text-brand-400' : 'bg-gray-100 text-gray-600 dark:bg-white/[0.05] dark:text-gray-400' }}">
+                                    {{ $package->type === 'dedicated_ip' ? 'Dedicated IP' : 'Shared / PPPoE' }}
+                                </span>
+                            </td>
+                            <td class="px-5 py-4 text-right">
+                                <span class="text-theme-sm font-semibold text-gray-800 dark:text-white/90">৳{{ number_format($package->price, 2) }}</span>
+                                <span class="mt-0.5 block text-theme-xs text-gray-500 dark:text-gray-400">per month</span>
+                            </td>
+                            <td class="px-5 py-4 text-right text-theme-sm {{ $hasCost ? 'font-medium text-gray-800 dark:text-white/90' : 'text-gray-400 dark:text-gray-500' }}">
+                                {{ $hasCost ? '৳'.number_format($package->cost, 2) : '—' }}
+                            </td>
+                            <td class="px-5 py-4">
+                                @if($marginPct === null)
+                                    <span class="text-theme-xs text-gray-400 dark:text-gray-500">Not set</span>
+                                @else
+                                    <span class="inline-flex rounded-full px-2.5 py-1 text-theme-xs font-medium {{ $profit < 0 ? 'bg-error-50 text-error-600 dark:bg-error-500/15 dark:text-error-500' : 'bg-success-50 text-success-600 dark:bg-success-500/15 dark:text-success-500' }}">
+                                        {{ $profit < 0 ? 'Loss '.$marginPct.'%' : 'Profit '.$marginPct.'%' }}
+                                    </span>
+                                @endif
+                            </td>
+                            <td class="px-5 py-4">
+                                <button
+                                    type="button"
+                                    role="switch"
+                                    aria-label="{{ $package->is_active ? 'Active - click to deactivate' : 'Inactive - click to activate' }}"
+                                    aria-checked="{{ $package->is_active ? 'true' : 'false' }}"
+                                    wire:click="toggleStatus({{ $package->id }})"
+                                    title="{{ $package->is_active ? 'Active - click to deactivate' : 'Inactive - click to activate' }}"
+                                    class="relative inline-flex h-6 w-11 shrink-0 cursor-pointer items-center rounded-full transition-colors duration-200 focus:outline-hidden focus:ring-3 focus:ring-brand-500/20 {{ $package->is_active ? 'bg-brand-500' : 'bg-gray-200 dark:bg-gray-700' }}"
+                                >
+                                    <span class="inline-block size-4 transform rounded-full bg-white shadow-theme-xs transition-transform duration-200 {{ $package->is_active ? 'translate-x-6' : 'translate-x-1' }}"></span>
+                                </button>
+                            </td>
+                            <td class="px-5 py-4">
+                                <div class="flex items-center justify-end gap-1.5">
+                                    <button type="button" wire:click="edit({{ $package->id }})" title="Edit package" class="grid h-8 w-8 place-items-center rounded-lg border border-gray-200 text-gray-500 transition hover:border-brand-300 hover:bg-brand-50 hover:text-brand-600 dark:border-gray-800 dark:text-gray-400 dark:hover:border-brand-500/40 dark:hover:bg-brand-500/10 dark:hover:text-brand-400">
+                                        <svg class="size-4 stroke-current" viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                                    </button>
+                                    <button
+                                        type="button"
+                                        title="Delete package"
+                                        @click="$dispatch('confirm-action', {
+                                            title: 'Delete package',
+                                            message: 'Delete {{ $package->name }} from your catalog? Packages used by subscribers must be deactivated instead.',
+                                            confirmText: 'Delete',
+                                            wireMethod: 'delete',
+                                            wireParams: [{{ $package->id }}],
+                                        })"
+                                        class="grid h-8 w-8 place-items-center rounded-lg border border-error-200 bg-error-50 text-error-600 transition hover:border-error-300 hover:bg-error-100 hover:text-error-700 dark:border-error-500/25 dark:bg-error-500/10 dark:text-error-400 dark:hover:border-error-500/40 dark:hover:bg-error-500/15 dark:hover:text-error-300"
+                                    >
+                                        <svg class="size-4 stroke-current" viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>
+                                    </button>
+                                </div>
+                            </td>
+                        </tr>
+                    @empty
+                        <tr>
+                            <td colspan="7" class="px-5 py-12 text-center">
+                                <div class="mx-auto max-w-xs">
+                                    <p class="text-theme-sm text-gray-500 dark:text-gray-400">{{ $search ? 'No packages match your search.' : 'No packages created yet.' }}</p>
+                                </div>
+                            </td>
+                        </tr>
+                    @endforelse
+                </tbody>
+            </table>
+        </x-table>
 
-                    <div class="mt-8 flex justify-end gap-3 pt-4">
-                        <button type="button" wire:click="$set('showModal', false)" class="bc-secondary">Cancel</button>
-                        <button type="submit" wire:loading.attr="disabled" class="bc-primary"><span wire:loading.remove wire:target="save">Save package</span><span wire:loading wire:target="save">Saving...</span></button>
-                    </div>
-                </form>
+    @else
+        <!-- Page header -->
+        <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+                <p class="text-theme-xs font-semibold uppercase tracking-wider text-brand-500 dark:text-brand-400">Service catalog</p>
+                <h1 class="mt-1 text-title-sm font-bold text-gray-800 dark:text-white/90">{{ $isEditing ? 'Edit package' : 'Create package' }}</h1>
+                <p class="mt-1 text-theme-sm text-gray-500 dark:text-gray-400">{{ $isEditing ? 'Update the connection profile and pricing.' : 'Add a new plan to your service catalog.' }}</p>
+            </div>
+            <div class="flex flex-wrap items-center gap-3">
+                <button wire:click="cancel" class="inline-flex items-center justify-center gap-2 rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-theme-sm font-medium text-gray-700 shadow-theme-xs transition hover:bg-gray-50 hover:text-gray-800 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-white/[0.03] dark:hover:text-gray-200">
+                    <svg class="size-4 stroke-current" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+                    Back to List
+                </button>
             </div>
         </div>
+
+        <form wire:submit="save" class="space-y-6">
+            <!-- Plan details -->
+            <section class="rounded-2xl border border-gray-200 bg-white p-5 shadow-theme-xs dark:border-gray-800 dark:bg-white/[0.03] sm:p-6">
+                <div class="mb-4">
+                    <h2 class="text-base font-semibold text-gray-800 dark:text-white/90">Plan details</h2>
+                    <p class="mt-0.5 text-theme-xs text-gray-500 dark:text-gray-400">Name and price are required. Set your cost to see monthly profit margins.</p>
+                </div>
+
+                <div>
+                    <label for="package-name" class="mb-1.5 block text-theme-sm font-medium text-gray-700 dark:text-gray-400">Package name<span class="ml-0.5 text-error-500">*</span></label>
+                    <input id="package-name" type="text" wire:model="name" class="h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-theme-sm text-gray-800 shadow-theme-xs placeholder:text-gray-400 focus:border-brand-300 focus:ring-3 focus:ring-brand-500/10 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30" placeholder="10 Mbps Ultimate">
+                    @error('name') <p class="mt-1.5 text-theme-xs text-error-600 dark:text-error-400">{{ $message }}</p> @enderror
+                </div>
+
+                <div class="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                    <div>
+                        <label for="package-price" class="mb-1.5 block text-theme-sm font-medium text-gray-700 dark:text-gray-400">Monthly price (BDT)<span class="ml-0.5 text-error-500">*</span></label>
+                        <div class="relative">
+                            <span class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-4 text-theme-sm font-medium text-gray-400 dark:text-gray-500">৳</span>
+                            <input id="package-price" type="number" step="0.01" min="0" wire:model="price" class="h-11 w-full rounded-lg border border-gray-300 bg-transparent py-2.5 pr-4 pl-9 text-theme-sm text-gray-800 shadow-theme-xs placeholder:text-gray-400 focus:border-brand-300 focus:ring-3 focus:ring-brand-500/10 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30" placeholder="1000.00">
+                        </div>
+                        @error('price') <p class="mt-1.5 text-theme-xs text-error-600 dark:text-error-400">{{ $message }}</p> @enderror
+                    </div>
+
+                    <div>
+                        <label for="package-cost" class="mb-1.5 block text-theme-sm font-medium text-gray-700 dark:text-gray-400">Monthly cost (BDT)</label>
+                        <div class="relative">
+                            <span class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-4 text-theme-sm font-medium text-gray-400 dark:text-gray-500">৳</span>
+                            <input id="package-cost" type="number" step="0.01" min="0" wire:model="cost" class="h-11 w-full rounded-lg border border-gray-300 bg-transparent py-2.5 pr-4 pl-9 text-theme-sm text-gray-800 shadow-theme-xs placeholder:text-gray-400 focus:border-brand-300 focus:ring-3 focus:ring-brand-500/10 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30" placeholder="What it costs you">
+                        </div>
+                        <p class="mt-1.5 text-theme-xs text-gray-500 dark:text-gray-400">Your delivery cost — used to calculate profit.</p>
+                        @error('cost') <p class="mt-1.5 text-theme-xs text-error-600 dark:text-error-400">{{ $message }}</p> @enderror
+                    </div>
+
+                    <div>
+                        <label for="package-bandwidth" class="mb-1.5 block text-theme-sm font-medium text-gray-700 dark:text-gray-400">Bandwidth</label>
+                        <input id="package-bandwidth" type="text" wire:model="bandwidth" class="h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-theme-sm text-gray-800 shadow-theme-xs placeholder:text-gray-400 focus:border-brand-300 focus:ring-3 focus:ring-brand-500/10 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30" placeholder="10 Mbps">
+                        @error('bandwidth') <p class="mt-1.5 text-theme-xs text-error-600 dark:text-error-400">{{ $message }}</p> @enderror
+                    </div>
+                </div>
+            </section>
+
+            <!-- Connection profile -->
+            <section class="rounded-2xl border border-gray-200 bg-white p-5 shadow-theme-xs dark:border-gray-800 dark:bg-white/[0.03] sm:p-6">
+                <div class="mb-4">
+                    <h2 class="text-base font-semibold text-gray-800 dark:text-white/90">Connection profile</h2>
+                    <p class="mt-0.5 text-theme-xs text-gray-500 dark:text-gray-400">Choose how this plan connects and whether it can be assigned.</p>
+                </div>
+
+                <div class="grid gap-4 sm:grid-cols-2">
+                    <div>
+                        <label for="package-type" class="mb-1.5 block text-theme-sm font-medium text-gray-700 dark:text-gray-400">Connection type<span class="ml-0.5 text-error-500">*</span></label>
+                        <x-search-select wireKey="type" :options="['shared' => 'Shared / PPPoE', 'dedicated_ip' => 'Dedicated IP']" :value="$type" placeholder="Select connection type" :searchable="false" />
+                        @error('type') <p class="mt-1.5 text-theme-xs text-error-600 dark:text-error-400">{{ $message }}</p> @enderror
+                    </div>
+
+                    <div class="flex items-start gap-3 rounded-lg border px-3.5 py-3 {{ $is_active ? 'border-success-100 bg-success-50/70 dark:border-success-500/20 dark:bg-success-500/10' : 'border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-900' }}">
+                        <span class="mt-0.5 grid h-7 w-7 shrink-0 place-items-center rounded-lg {{ $is_active ? 'bg-success-100 text-success-600 dark:bg-success-500/20 dark:text-success-300' : 'bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400' }}">
+                            @if($is_active)
+                                <svg class="size-4 stroke-current" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="8 12 11 15 16 9"/></svg>
+                            @else
+                                <svg class="size-4 stroke-current" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+                            @endif
+                        </span>
+                        <div class="min-w-0">
+                            <p class="text-theme-sm font-medium text-gray-800 dark:text-white/90">{{ $is_active ? 'Active package' : 'Inactive package' }}</p>
+                            <p class="mt-0.5 text-theme-xs leading-4 text-gray-500 dark:text-gray-400">
+                                {{ $is_active
+                                    ? 'This plan can be assigned to new customers and appears in billing dropdowns.'
+                                    : 'Hidden from new assignments. Existing subscribers keep their service.' }}
+                            </p>
+                        </div>
+                        <button
+                            type="button"
+                            role="switch"
+                            aria-checked="{{ $is_active ? 'true' : 'false' }}"
+                            wire:click="$toggle('is_active')"
+                            class="relative ml-auto inline-flex h-6 w-11 shrink-0 cursor-pointer items-center rounded-full transition-colors duration-200 focus:outline-hidden focus:ring-3 focus:ring-brand-500/20 {{ $is_active ? 'bg-brand-500' : 'bg-gray-200 dark:bg-gray-700' }}"
+                        >
+                            <span class="inline-block size-4 transform rounded-full bg-white shadow-theme-xs transition-transform duration-200 {{ $is_active ? 'translate-x-6' : 'translate-x-1' }}"></span>
+                        </button>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Actions -->
+            <div class="sticky bottom-4 flex flex-col-reverse gap-3 rounded-2xl border border-gray-200 bg-white/95 px-5 py-4 shadow-theme-lg backdrop-blur sm:flex-row sm:items-center sm:justify-between dark:border-gray-800 dark:bg-gray-900/95">
+                <p class="text-theme-xs text-gray-500 dark:text-gray-400">Fields marked with <span class="text-error-500">*</span> are required.</p>
+                <div class="flex flex-col-reverse gap-3 sm:flex-row">
+                    <button type="button" wire:click="cancel" class="inline-flex items-center justify-center gap-2 rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-theme-sm font-medium text-gray-700 shadow-theme-xs transition hover:bg-gray-50 hover:text-gray-800 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-white/[0.03] dark:hover:text-gray-200">Cancel</button>
+                    <button type="submit" wire:loading.attr="disabled" class="inline-flex items-center justify-center gap-2 rounded-lg bg-brand-500 px-4 py-2.5 text-theme-sm font-medium text-white shadow-theme-xs transition hover:bg-brand-600 disabled:cursor-not-allowed disabled:opacity-50">
+                        <span wire:loading.remove wire:target="save">{{ $isEditing ? 'Save changes' : 'Create package' }}</span>
+                        <span wire:loading wire:target="save">Saving...</span>
+                    </button>
+                </div>
+            </div>
+        </form>
     @endif
 </div>

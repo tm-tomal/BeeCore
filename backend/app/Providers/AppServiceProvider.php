@@ -32,5 +32,8 @@ class AppServiceProvider extends ServiceProvider
         foreach ([Tenant::class, Customer::class, CustomerSubscription::class, Invoice::class, InvoiceItem::class, Package::class, Payment::class, Network::class, Reseller::class] as $model) {
             $model::observe(AuditableObserver::class);
         }
+
+        // Apply the user's chosen language before each web request.
+        $this->app['router']->pushMiddlewareToGroup('web', \App\Http\Middleware\SetLocale::class);
     }
 }

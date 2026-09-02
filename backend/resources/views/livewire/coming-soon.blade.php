@@ -1,20 +1,26 @@
-<div>
-    <header class="mb-6">
-        <p class="text-xs font-bold uppercase tracking-[0.16em] text-teal-300">SaaS administration</p>
-        <h1 class="mt-2 text-2xl font-black text-white sm:text-3xl">{{ $label }}</h1>
-        @if($description)
-            <p class="mt-2 text-sm text-slate-500">{{ $description }}</p>
-        @endif
+<div class="space-y-6">
+    <!-- Page header -->
+    <header class="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+            <p class="text-theme-xs font-semibold uppercase tracking-wider text-brand-500 dark:text-brand-400">SaaS administration</p>
+            <h1 class="mt-1 text-title-sm font-bold text-gray-800 dark:text-white/90">{{ $label }}</h1>
+            @if($description)
+                <p class="mt-1 text-theme-sm text-gray-500 dark:text-gray-400">{{ $description }}</p>
+            @endif
+        </div>
     </header>
 
-    <div class="max-w-2xl border border-white/10 bg-white/[0.03] p-6" style="border-radius: 8px">
-        <div class="mb-4 inline-flex items-center gap-2 border border-amber-400/25 bg-amber-400/10 px-3 py-1 text-xs font-bold uppercase tracking-wide text-amber-300" style="border-radius: 999px">
+    <div class="max-w-2xl rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03] sm:p-6">
+        <div class="inline-flex items-center gap-2 rounded-full border border-warning-200 bg-warning-50 px-3 py-1 text-theme-xs font-semibold uppercase tracking-wider text-warning-600 dark:border-warning-500/20 dark:bg-warning-500/15 dark:text-warning-500">
             <span aria-hidden="true">🚧</span> Coming soon
         </div>
-        <p class="mb-5 text-sm text-slate-400">This module is on the roadmap and is not implemented yet. Planned capabilities:</p>
-        <ul class="space-y-2 text-sm text-slate-300">
+        <p class="mt-4 text-theme-sm text-gray-500 dark:text-gray-400">This module is on the roadmap and is not implemented yet. Planned capabilities:</p>
+        <ul class="mt-4 space-y-2.5">
             @foreach($features as $feature)
-                <li class="flex items-start gap-2"><span class="mt-1 text-teal-300" aria-hidden="true">•</span><span>{{ $feature }}</span></li>
+                <li class="flex items-start gap-2.5 text-theme-sm text-gray-600 dark:text-gray-400">
+                    <span class="mt-0.5 shrink-0 text-brand-500 dark:text-brand-400" aria-hidden="true">•</span>
+                    <span>{{ $feature }}</span>
+                </li>
             @endforeach
         </ul>
     </div>

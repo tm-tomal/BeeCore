@@ -20,6 +20,7 @@ class Subscriptions extends Component
     use WithPagination;
 
     public string $statusFilter = '';
+    public string $search = '';
     public ?int $historyForId = null;
 
     public ?int $changePlanForId = null;
@@ -30,6 +31,11 @@ class Subscriptions extends Component
     public int $extendTrialDays = 7;
 
     public function updatedStatusFilter(): void
+    {
+        $this->resetPage();
+    }
+
+    public function updatedSearch(): void
     {
         $this->resetPage();
     }
@@ -228,6 +234,9 @@ class Subscriptions extends Component
             'subscriptions' => TenantSubscription::query()
                 ->with(['tenant', 'plan'])
                 ->when($this->statusFilter, fn ($query) => $query->where('status', $this->statusFilter))
+                ->when($this->search !== '', fn ($query) => $query->where(fn ($q) => $q
+                    ->whereHas('tenant', fn ($t) => $t->where('name', 'like', '%'.$this->search.'%'))
+                    ->orWhereHas('plan', fn ($p) => $p->where('name', 'like', '%'.$this->search.'%'))))
                 ->latest('id')
                 ->paginate(15),
             'plans' => SaasPlan::query()->where('is_active', true)->whereNull('archived_at')->orderBy('monthly_price')->get(),

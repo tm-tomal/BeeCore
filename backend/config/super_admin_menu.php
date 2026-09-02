@@ -7,36 +7,35 @@
 // coming-soon placeholder page rendered with the listed planned features.
 return [
     [
-        'group' => 'ISP / Tenant',
+        'group' => 'Portfolio',
         'items' => [
-            ['label' => 'Tenants', 'route' => 'tenants'],
-            ['label' => 'ISP onboarding', 'route' => 'isp-onboarding'],
+            ['label' => 'ISP tenants', 'route' => 'tenants'],
         ],
     ],
     [
-        'group' => 'Subscriptions & billing',
+        'group' => 'Commercial',
         'items' => [
-            ['label' => 'SaaS plans', 'route' => 'saas-plans'],
+            ['label' => 'Plan & pricing', 'route' => 'saas-plans'],
             ['label' => 'Subscriptions', 'route' => 'subscriptions'],
             ['label' => 'SaaS billing', 'route' => 'saas-billing'],
-            ['label' => 'SaaS payments', 'route' => 'saas-payments'],
-            ['label' => 'Payment gateways', 'route' => 'payment-gateways'],
+            ['label' => 'Payments', 'route' => 'saas-payments'],
+            ['label' => 'Payment methods', 'route' => 'payment-gateways'],
             ['label' => 'Add-ons', 'route' => 'add-ons'],
         ],
     ],
     [
-        'group' => 'Platform features',
+        'group' => 'Platform',
         'items' => [
             [
-                'label' => 'Feature & modules',
+                'label' => 'Feature flags',
                 'route' => 'feature-modules',
             ],
             [
-                'label' => 'Multi-language',
+                'label' => 'Languages',
                 'route' => 'multi-language',
             ],
             [
-                'label' => 'Multi-currency',
+                'label' => 'Currencies',
                 'route' => 'multi-currency',
             ],
             [
@@ -54,14 +53,14 @@ return [
         ],
     ],
     [
-        'group' => 'Communications',
+        'group' => 'Messaging',
         'items' => [
             [
-                'label' => 'SMS management',
+                'label' => 'SMS',
                 'route' => 'sms-management',
             ],
             [
-                'label' => 'Email management',
+                'label' => 'Email',
                 'route' => 'email-management',
             ],
             [
@@ -75,35 +74,35 @@ return [
         ],
     ],
     [
-        'group' => 'Network & integrations',
+        'group' => 'Integrations',
         'items' => [
             [
-                'label' => 'Network integrations',
+                'label' => 'Network',
                 'route' => 'network-integrations',
             ],
             [
-                'label' => 'API management',
+                'label' => 'API & webhooks',
                 'route' => 'api-management',
             ],
         ],
     ],
     [
-        'group' => 'Operations',
+        'group' => 'System',
         'items' => [
             [
-                'label' => 'System settings',
+                'label' => 'Settings',
                 'route' => 'system-settings',
             ],
             [
-                'label' => 'System health',
+                'label' => 'Health',
                 'route' => 'system-health',
             ],
             [
-                'label' => 'Queue & jobs',
+                'label' => 'Queue',
                 'route' => 'queue-jobs',
             ],
             [
-                'label' => 'Data management',
+                'label' => 'Data & backups',
                 'route' => 'data-management',
             ],
         ],
@@ -112,16 +111,16 @@ return [
         'group' => 'Support',
         'items' => [
             [
-                'label' => 'Support tickets',
+                'label' => 'Tickets',
                 'route' => 'support-tickets',
             ],
         ],
     ],
     [
-        'group' => 'Reports & analytics',
+        'group' => 'Insights',
         'items' => [
             [
-                'label' => 'Reports & analytics',
+                'label' => 'Reports',
                 'route' => 'reports-analytics',
             ],
             [
@@ -131,18 +130,18 @@ return [
         ],
     ],
     [
-        'group' => 'Security & access',
+        'group' => 'Security',
         'items' => [
-            ['label' => 'Platform users', 'route' => 'platform-users'],
+            ['label' => 'Users', 'route' => 'platform-users'],
             [
-                'label' => 'Roles & permissions',
+                'label' => 'Roles & access',
                 'route' => 'roles-permissions',
             ],
             [
                 'label' => 'Security center',
                 'route' => 'security-center',
             ],
-            ['label' => 'Audit activity', 'route' => 'audit-activity'],
+            ['label' => 'Audit log', 'route' => 'audit-activity'],
         ],
     ],
     [

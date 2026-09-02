@@ -19,6 +19,7 @@ class SaasBilling extends Component
     use WithPagination;
 
     public string $statusFilter = '';
+    public string $search = '';
 
     public ?int $detailInvoiceId = null;
 
@@ -32,6 +33,11 @@ class SaasBilling extends Component
     public string $refundReason = '';
 
     public function updatedStatusFilter(): void
+    {
+        $this->resetPage();
+    }
+
+    public function updatedSearch(): void
     {
         $this->resetPage();
     }
@@ -182,6 +188,9 @@ class SaasBilling extends Component
             'invoices' => SaasInvoice::query()
                 ->with(['tenant', 'subscription.plan'])
                 ->when($this->statusFilter, fn ($query) => $query->where('status', $this->statusFilter))
+                ->when($this->search !== '', fn ($query) => $query->where(fn ($q) => $q
+                    ->where('invoice_number', 'like', '%'.$this->search.'%')
+                    ->orWhereHas('tenant', fn ($t) => $t->where('name', 'like', '%'.$this->search.'%'))))
                 ->latest('due_date')
                 ->paginate(15),
             'detailInvoice' => $this->detailInvoiceId

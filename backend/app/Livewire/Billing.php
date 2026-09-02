@@ -4,7 +4,10 @@ namespace App\Livewire;
 
 use App\Models\Invoice;
 use App\Models\Customer;
+use App\Models\Payment;
+use App\Models\Tenant;
 use App\Models\User;
+use App\Services\RecurringInvoiceGenerator;
 use App\Support\AuthorizesRoles;
 use App\Support\CurrentTenant;
 use Illuminate\Validation\Rule;
@@ -25,9 +28,13 @@ class Billing extends Component
         $this->authorizeRoles(User::ROLE_SUPER_ADMIN, User::ROLE_TENANT_ADMIN, User::ROLE_FINANCE);
     }
 
-    public $showModal = false;
+    public $viewMode = 'index';
     public $isEditing = false;
     public $invoiceId;
+
+    public $search = '';
+    public $statusFilter = '';
+    public $viewingInvoice = null;
 
     public $customer_id = '';
     public $status = 'draft';
@@ -37,12 +44,13 @@ class Billing extends Component
     public $due_date = '';
     public $items = [];
 
-    protected function rules() {
+    protected function rules()
+    {
         $tenantId = app(CurrentTenant::class)->id();
 
         return [
             'customer_id' => ['required', Rule::exists('customers', 'id')->where('tenant_id', $tenantId)],
-            'status' => 'required|in:draft,pending,overdue,cancelled',
+            'status' => 'required|in:draft,pending,overdue,paid,cancelled',
             'tax_amount' => 'required|numeric|min:0',
             'due_date' => 'required|date',
             'items' => 'required|array|min:1',
@@ -62,12 +70,22 @@ class Billing extends Component
         $this->calculateTotal();
     }
 
+    public function updatedSearch(): void
+    {
+        $this->resetPage();
+    }
+
+    public function updatedStatusFilter(): void
+    {
+        $this->resetPage();
+    }
+
     private function calculateTotal()
     {
         $this->subtotal = collect($this->items)->sum(
             fn ($item) => (float) ($item['quantity'] ?? 0) * (float) ($item['unit_price'] ?? 0)
         );
-        $this->total = (float)$this->subtotal + (float)$this->tax_amount;
+        $this->total = (float) $this->subtotal + (float) $this->tax_amount;
     }
 
     public function addItem(): void
@@ -91,14 +109,18 @@ class Billing extends Component
         $this->isEditing = false;
         $this->items = [['description' => 'Internet service', 'quantity' => 1, 'unit_price' => 0]];
         $this->due_date = now()->addDays(7)->format('Y-m-d');
-        $this->showModal = true;
+        $this->viewMode = 'create';
+    }
+
+    public function cancel()
+    {
+        $this->viewMode = 'index';
     }
 
     public function edit($id)
     {
         $this->resetValidation();
         $invoice = $this->invoices()->with('items')->findOrFail($id);
-        abort_if($invoice->payments()->where('status', 'successful')->exists(), 409, 'Invoices with payments cannot be edited.');
         $this->invoiceId = $invoice->id;
         $this->customer_id = $invoice->customer_id;
         $this->status = $invoice->status;
@@ -115,9 +137,21 @@ class Billing extends Component
         if ($this->items === []) {
             $this->items = [['description' => 'Service', 'quantity' => 1, 'unit_price' => $invoice->subtotal]];
         }
-        
+
         $this->isEditing = true;
-        $this->showModal = true;
+        $this->viewMode = 'create';
+    }
+
+    public function viewInvoice($id)
+    {
+        $this->viewingInvoice = $this->invoices()->with(['customer', 'items', 'payments' => fn ($query) => $query->where('status', 'successful')])->findOrFail($id);
+        $this->viewMode = 'view';
+    }
+
+    public function closeView(): void
+    {
+        $this->viewingInvoice = null;
+        $this->viewMode = 'index';
     }
 
     public function save()
@@ -130,11 +164,7 @@ class Billing extends Component
         DB::transaction(function () use ($tenantId) {
             $invoice = $this->isEditing
                 ? $this->invoices()->lockForUpdate()->findOrFail($this->invoiceId)
-                : new Invoice(['tenant_id' => $tenantId, 'invoice_number' => 'INV-' . strtoupper(Str::random(8))]);
-
-            if ($this->isEditing && $invoice->payments()->where('status', 'successful')->exists()) {
-                throw ValidationException::withMessages(['invoiceId' => 'Invoices with payments cannot be edited.']);
-            }
+                : new Invoice(['tenant_id' => $tenantId, 'invoice_number' => 'INV-'.strtoupper(Str::random(8))]);
 
             $invoice->fill([
                 'customer_id' => $this->customer_id,
@@ -156,23 +186,91 @@ class Billing extends Component
             ])->all());
         });
 
-        $this->showModal = false;
+        $this->viewMode = 'index';
         session()->flash('message', $this->isEditing ? 'Invoice updated successfully.' : 'Invoice generated successfully.');
+    }
+
+    public function generateRecurring(RecurringInvoiceGenerator $generator)
+    {
+        $tenantId = app(CurrentTenant::class)->id();
+        $created = $generator->generateDueForTenant($tenantId);
+
+        session()->flash('message', $created > 0
+            ? 'Recurring billing ran — '.$created.' new invoice'.($created === 1 ? '' : 's').' generated. Customers already billed for the current period were skipped.'
+            : 'Recurring billing ran — every due subscription is already billed. Nothing new to generate.');
     }
 
     public function delete($id)
     {
         $invoice = $this->invoices()->findOrFail($id);
-        abort_if($invoice->payments()->exists(), 409, 'Invoices with payments cannot be deleted.');
         $invoice->delete();
+        $this->viewingInvoice = null;
+        $this->viewMode = 'index';
         session()->flash('message', 'Invoice deleted successfully.');
     }
 
     public function render()
     {
+        $tenantId = app(CurrentTenant::class)->id();
+        $openStatuses = ['draft', 'pending', 'overdue'];
+
+        $openTotals = $this->invoices()
+            ->whereIn('status', $openStatuses)
+            ->selectRaw('COUNT(*) as invoice_count')
+            ->selectRaw('COALESCE(SUM(total), 0) as open_total')
+            ->selectRaw("COALESCE(SUM(CASE WHEN status = 'overdue' THEN total ELSE 0 END), 0) as overdue_total")
+            ->first();
+
+        $paidOnOpen = Payment::query()
+            ->where('tenant_id', $tenantId)
+            ->where('status', 'successful')
+            ->whereHas('invoice', fn ($query) => $query->whereIn('status', $openStatuses))
+            ->sum('amount');
+
+        $paidOnOverdue = Payment::query()
+            ->where('tenant_id', $tenantId)
+            ->where('status', 'successful')
+            ->whereHas('invoice', fn ($query) => $query->where('status', 'overdue'))
+            ->sum('amount');
+
+        $collected = Payment::query()
+            ->where('tenant_id', $tenantId)
+            ->where('status', 'successful')
+            ->sum('amount');
+
+        $summary = [
+            'collected' => (float) $collected,
+            'open_count' => (int) $openTotals->invoice_count,
+            'outstanding' => max(0, (float) $openTotals->open_total - (float) $paidOnOpen),
+            'overdue' => max(0, (float) $openTotals->overdue_total - (float) $paidOnOverdue),
+        ];
+
+        $invoices = $this->invoices()
+            ->with(['customer', 'payments'])
+            ->when($this->search !== '', function ($query) {
+                $query->where(function ($query) {
+                    $query->where('invoice_number', 'like', '%'.$this->search.'%')
+                        ->orWhereHas('customer', fn ($customer) => $customer->where('name', 'like', '%'.$this->search.'%'));
+                });
+            })
+            ->when($this->statusFilter !== '', fn ($query) => $query->where('status', $this->statusFilter))
+            ->latest()
+            ->paginate(10);
+
+        $customers = Customer::query()->where('tenant_id', $tenantId)->get();
+
+        $tenant = Tenant::query()->find($tenantId);
+        $branding = \App\Models\TenantBranding::query()->where('tenant_id', $tenantId)->first();
+
         return view('livewire.billing', [
-            'invoices' => $this->invoices()->with(['customer', 'payments'])->latest()->paginate(10),
-            'customers' => Customer::query()->where('tenant_id', app(CurrentTenant::class)->id())->get(),
+            'invoices' => $invoices,
+            'customers' => $customers,
+            'tenant' => $tenant,
+            'branding' => $branding,
+            'customerOptions' => collect(['' => 'Select a customer...'])->union(
+                $customers->mapWithKeys(fn ($customer) => [$customer->id => $customer->name.' — '.$customer->email])
+            )->map(fn ($label, $value) => ['value' => (string) $value, 'label' => (string) $label])->values()->all(),
+            'summary' => $summary,
         ]);
     }
 

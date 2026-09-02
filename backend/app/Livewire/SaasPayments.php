@@ -6,6 +6,7 @@ use App\Models\AuditLog;
 use App\Models\SaasInvoice;
 use App\Models\SaasPayment;
 use App\Models\SaasRefund;
+use App\Models\TenantSubscriptionEvent;
 use Illuminate\Support\Facades\DB;
 use Livewire\Attributes\Layout;
 use Livewire\Component;
@@ -109,11 +110,40 @@ class SaasPayments extends Component
     {
         $this->assertSuperAdmin();
 
-        $payment = SaasPayment::findOrFail($id);
-        abort_unless($payment->status === 'pending', 422, 'Only a pending payment can be marked failed.');
+        DB::transaction(function () use ($id) {
+            $payment = SaasPayment::query()->lockForUpdate()->findOrFail($id);
+            abort_unless($payment->status === 'pending', 422, 'Only a pending payment can be marked failed.');
 
-        $payment->update(['status' => 'failed']);
-        AuditLog::record('saas.payment.failed', $payment, tenantId: $payment->tenant_id);
+            $payment->update(['status' => 'failed']);
+            AuditLog::record('saas.payment.failed', $payment, tenantId: $payment->tenant_id);
+
+            // If this was the only pending payment for a pending-approval order, close the order.
+            $subscription = $payment->invoice?->subscription;
+            if (!$subscription || $subscription->status !== 'pending_approval') {
+                return;
+            }
+
+            $otherPending = SaasPayment::query()
+                ->whereIn('saas_invoice_id', $subscription->invoices()->pluck('id'))
+                ->where('status', 'pending')
+                ->where('id', '!=', $payment->id)
+                ->exists();
+
+            if (!$otherPending) {
+                $subscription->update(['status' => 'cancelled', 'cancelled_at' => now(), 'auto_renew' => false]);
+                TenantSubscriptionEvent::create([
+                    'tenant_subscription_id' => $subscription->id,
+                    'user_id' => auth()->id(),
+                    'event' => 'subscription.cancelled',
+                    'from_status' => 'pending_approval',
+                    'to_status' => 'cancelled',
+                    'metadata' => ['reason' => 'payment_failed'],
+                    'created_at' => now(),
+                ]);
+                AuditLog::record('tenant.subscription.cancelled', $subscription, tenantId: $subscription->tenant_id);
+            }
+        });
+
         session()->flash('message', 'Payment marked failed.');
     }
 
@@ -170,11 +200,23 @@ class SaasPayments extends Component
 
         $stillUnpaid = $subscription->invoices()->whereIn('status', ['pending', 'overdue'])->where('id', '!=', $invoice->id)->exists();
 
-        if (!$stillUnpaid && in_array($subscription->status, ['past_due', 'suspended'], true)) {
+        if (!$stillUnpaid && in_array($subscription->status, ['pending_approval', 'past_due', 'suspended'], true)) {
+            $wasPendingApproval = $subscription->status === 'pending_approval';
+            $fromStatus = $subscription->status;
             $subscription->update(['status' => 'active']);
             if ($invoice->tenant->status === 'suspended') {
                 $invoice->tenant->update(['status' => 'active']);
             }
+
+            TenantSubscriptionEvent::create([
+                'tenant_subscription_id' => $subscription->id,
+                'user_id' => auth()->id(),
+                'event' => $wasPendingApproval ? 'subscription.approved' : 'subscription.reactivated',
+                'from_status' => $fromStatus,
+                'to_status' => 'active',
+                'metadata' => null,
+                'created_at' => now(),
+            ]);
         }
     }
 

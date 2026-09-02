@@ -12,13 +12,35 @@ class RecurringInvoiceGenerator
     public function generateDue(?CarbonInterface $through = null): int
     {
         $through ??= today();
+
+        return $this->generateFromQuery(
+            CustomerSubscription::query()
+                ->where('status', 'active')
+                ->whereDate('next_billing_date', '<=', $through)
+                ->whereHas('customer', fn ($query) => $query->where('status', 'active')),
+            $through
+        );
+    }
+
+    public function generateDueForTenant(int $tenantId, ?CarbonInterface $through = null): int
+    {
+        $through ??= today();
+
+        return $this->generateFromQuery(
+            CustomerSubscription::query()
+                ->where('tenant_id', $tenantId)
+                ->where('status', 'active')
+                ->whereDate('next_billing_date', '<=', $through)
+                ->whereHas('customer', fn ($query) => $query->where('tenant_id', $tenantId)->where('status', 'active')),
+            $through
+        );
+    }
+
+    private function generateFromQuery($query, CarbonInterface $through): int
+    {
         $generated = 0;
 
-        CustomerSubscription::query()
-            ->where('status', 'active')
-            ->whereDate('next_billing_date', '<=', $through)
-            ->whereHas('customer', fn ($query) => $query->where('status', 'active'))
-            ->orderBy('id')
+        $query->orderBy('id')
             ->pluck('id')
             ->each(function (int $subscriptionId) use ($through, &$generated) {
                 for ($period = 0; $period < 120; $period++) {
@@ -42,7 +64,7 @@ class RecurringInvoiceGenerator
     {
         return DB::transaction(function () use ($subscriptionId, $through) {
             $subscription = CustomerSubscription::query()
-                ->with('customer')
+                ->with(['customer', 'tenant'])
                 ->lockForUpdate()
                 ->findOrFail($subscriptionId);
 
@@ -55,6 +77,7 @@ class RecurringInvoiceGenerator
             $periodStart = $subscription->next_billing_date->copy();
             $subtotal = round((float) $subscription->price, 2);
             $tax = round($subtotal * (float) $subscription->tax_rate / 100, 2);
+            $graceDays = (int) ($subscription->tenant?->billingSetting('grace_days', 7) ?? 7);
 
             $invoice = Invoice::firstOrCreate([
                 'subscription_id' => $subscription->id,
@@ -67,7 +90,7 @@ class RecurringInvoiceGenerator
                 'subtotal' => $subtotal,
                 'tax_amount' => $tax,
                 'total' => $subtotal + $tax,
-                'due_date' => $periodStart->copy()->addDays(7),
+                'due_date' => $periodStart->copy()->addDays($graceDays),
             ]);
 
             if ($invoice->wasRecentlyCreated) {

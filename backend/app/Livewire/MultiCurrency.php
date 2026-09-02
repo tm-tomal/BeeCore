@@ -13,6 +13,7 @@ use Livewire\Component;
 class MultiCurrency extends Component
 {
     public string $viewMode = 'index';
+    public string $search = '';
     public ?int $currencyId = null;
     public string $code = '';
     public string $name = '';
@@ -63,6 +64,11 @@ class MultiCurrency extends Component
     public function cancelForm(): void
     {
         $this->viewMode = 'index';
+    }
+
+    public function updatedSearch(): void
+    {
+        // Search re-renders automatically.
     }
 
     public function save(): void
@@ -161,7 +167,13 @@ class MultiCurrency extends Component
         $this->assertSuperAdmin();
 
         return view('livewire.multi-currency', [
-            'currencies' => Currency::query()->orderBy('name')->get(),
+            'currencies' => Currency::query()
+                ->when($this->search !== '', fn ($query) => $query->where(fn ($q) => $q
+                    ->where('name', 'like', '%'.$this->search.'%')
+                    ->orWhere('code', 'like', '%'.$this->search.'%')
+                    ->orWhere('symbol', 'like', '%'.$this->search.'%')))
+                ->orderBy('name')
+                ->get(),
             'history' => $this->historyForId
                 ? CurrencyRateHistory::where('currency_id', $this->historyForId)->with('recordedBy')->latest('recorded_at')->limit(50)->get()
                 : collect(),

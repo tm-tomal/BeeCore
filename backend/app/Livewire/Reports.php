@@ -1,14 +1,10 @@
 <?php
 namespace App\Livewire;
 
-use App\Models\Customer;
-use App\Models\Invoice;
-use App\Models\Network;
-use App\Models\Payment;
-use App\Models\Reseller;
 use App\Models\User;
 use App\Support\AuthorizesRoles;
 use App\Support\CurrentTenant;
+use App\Support\ReportSnapshot;
 use Carbon\Carbon;
 use Livewire\Component;
 use Livewire\Attributes\Layout;
@@ -33,28 +29,19 @@ class Reports extends Component {
         $tenantId = app(CurrentTenant::class)->id();
         $from = Carbon::parse($this->from ?: now()->startOfMonth())->startOfDay();
         $to = Carbon::parse($this->to ?: now())->endOfDay();
-        $payments = Payment::query()->where('tenant_id', $tenantId)->whereBetween('payment_date', [$from, $to]);
-        $invoices = Invoice::query()->where('tenant_id', $tenantId)->whereBetween('created_at', [$from, $to]);
-        $successful = (clone $payments)->where('status', 'successful');
-        $paymentMethods = (clone $successful)
-            ->selectRaw('payment_method, SUM(amount) as total, COUNT(*) as transactions')
-            ->groupBy('payment_method')->orderByDesc('total')->get();
-        $invoiceStatuses = (clone $invoices)
-            ->selectRaw('status, COUNT(*) as total')->groupBy('status')->pluck('total', 'status');
+
+        $snapshot = ReportSnapshot::forWorkspace($tenantId, $from, $to);
 
         return view('livewire.reports', [
-            'metrics' => [
-                'collections' => (float) (clone $successful)->sum('amount'),
-                'transactions' => (clone $successful)->count(),
-                'invoiced' => (float) (clone $invoices)->sum('total'),
-                'customers' => Customer::query()->where('tenant_id', $tenantId)->count(),
-                'active_customers' => Customer::query()->where('tenant_id', $tenantId)->where('status', 'active')->count(),
-                'online_devices' => Network::query()->where('tenant_id', $tenantId)->where('status', 'online')->count(),
-                'resellers' => Reseller::query()->where('tenant_id', $tenantId)->where('status', 'active')->count(),
-            ],
-            'paymentMethods' => $paymentMethods,
-            'invoiceStatuses' => $invoiceStatuses,
-            'maxPaymentMethod' => max(1, (float) $paymentMethods->max('total')),
+            'period' => $snapshot['period'],
+            'metrics' => $snapshot['metrics'],
+            'paymentMethods' => $snapshot['paymentMethods'],
+            'invoiceStatuses' => $snapshot['invoiceStatuses'],
+            'maxPaymentMethod' => max(1, (float) collect($snapshot['paymentMethods'])->max('total')),
+            'printUrl' => route('reports.print', [
+                'from' => $snapshot['period']['from'],
+                'to' => $snapshot['period']['to'],
+            ]),
         ]);
     }
 }

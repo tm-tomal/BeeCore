@@ -1,86 +1,193 @@
-<div>
+<div class="space-y-6">
     @php use Illuminate\Support\Str; @endphp
-    <header class="mb-6">
-        <p class="text-xs font-bold uppercase tracking-[0.16em] text-teal-300">Account</p>
-        <h1 class="mt-2 text-2xl font-black text-white sm:text-3xl">My profile</h1>
-        <p class="mt-2 text-sm text-slate-500">Profile information, security, notification preferences, language, and timezone.</p>
+
+    <!-- Page header -->
+    <header>
+        <p class="text-theme-xs font-semibold uppercase tracking-wider text-brand-500 dark:text-brand-400">Account</p>
+        <h1 class="mt-1 text-title-sm font-bold text-gray-800 dark:text-white/90">My profile</h1>
+        <p class="mt-1 text-theme-sm text-gray-500 dark:text-gray-400">Profile information, security, notification preferences, language, and timezone.</p>
     </header>
 
-    @if(session()->has('message'))
-        <div class="mb-5 border border-emerald-400/20 bg-emerald-400/10 p-3 text-sm text-emerald-300" style="border-radius:6px">{{ session('message') }}</div>
+    @if (session()->has('message'))
+        <div class="flex items-start gap-3 rounded-xl border border-success-200 bg-success-50 px-4 py-3 text-theme-sm font-medium text-success-700 dark:border-success-500/20 dark:bg-success-500/10 dark:text-success-400">
+            {{ session('message') }}
+        </div>
     @endif
 
     @if($issuedTwoFactorSecret)
-        <div class="mb-5 border border-amber-400/25 bg-amber-400/10 p-4 text-sm text-amber-200" style="border-radius:6px">
-            <p class="font-bold">Save this two-factor secret now — it will not be shown again.</p>
-            <code class="mt-2 block break-all text-teal-300">{{ $issuedTwoFactorSecret }}</code>
+        <div class="flex items-start gap-3 rounded-xl border border-warning-200 bg-warning-50 px-4 py-3 dark:border-warning-500/20 dark:bg-warning-500/10">
+            <svg class="mt-0.5 size-5 shrink-0 stroke-warning-500" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+            <div>
+                <p class="text-theme-sm font-semibold text-warning-700 dark:text-warning-300">Save this two-factor secret now — it will not be shown again.</p>
+                <code class="mt-2 block break-all text-theme-sm font-semibold text-warning-600 dark:text-warning-400">{{ $issuedTwoFactorSecret }}</code>
+            </div>
         </div>
     @endif
 
-    <div class="grid gap-6 lg:grid-cols-2">
-        <form wire:submit="saveProfile" class="bc-panel space-y-4 p-5" style="border-radius:8px">
-            <h2 class="font-bold text-white">Profile information</h2>
-            <div><label class="bc-label" for="mp-name">Name</label><input id="mp-name" wire:model="name" class="bc-field">@error('name')<p class="text-xs text-rose-300">{{ $message }}</p>@enderror</div>
-            <div><label class="bc-label" for="mp-email">Email</label><input id="mp-email" wire:model="email" type="email" class="bc-field">@error('email')<p class="text-xs text-rose-300">{{ $message }}</p>@enderror</div>
-            <div class="grid gap-4 sm:grid-cols-2">
-                <div><label class="bc-label" for="mp-language">Language</label><select id="mp-language" wire:model="language" class="bc-field">@foreach($languages as $lang)<option value="{{ $lang->code }}">{{ $lang->name }}</option>@endforeach</select>@error('language')<p class="text-xs text-rose-300">{{ $message }}</p>@enderror</div>
-                <div><label class="bc-label" for="mp-timezone">Timezone</label><input id="mp-timezone" wire:model="timezone" class="bc-field">@error('timezone')<p class="text-xs text-rose-300">{{ $message }}</p>@enderror</div>
+    <!-- Identity + workspace card -->
+    <div class="rounded-2xl border border-gray-200 bg-white p-5 shadow-theme-xs dark:border-gray-800 dark:bg-white/[0.03] sm:p-6">
+        <div class="flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
+            <div class="flex items-center gap-4">
+                <span class="grid h-14 w-14 shrink-0 place-items-center rounded-full bg-brand-500/15 text-xl font-bold text-brand-600 dark:bg-brand-500/20 dark:text-brand-400">{{ strtoupper(substr(auth()->user()->name, 0, 1)) }}</span>
+                <div>
+                    <div class="flex flex-wrap items-center gap-2">
+                        <h2 class="text-lg font-bold text-gray-900 dark:text-white">{{ auth()->user()->name }}</h2>
+                        <span class="rounded-full bg-gray-100 px-2.5 py-0.5 text-theme-xs font-medium capitalize text-gray-600 dark:bg-white/[0.05] dark:text-gray-400">{{ $roleLabel }}</span>
+                    </div>
+                    <p class="mt-1 text-theme-sm text-gray-500 dark:text-gray-400">{{ auth()->user()->email }}</p>
+                </div>
             </div>
-            <button type="submit" class="bc-primary">Save profile</button>
-        </form>
 
-        <form wire:submit="changePassword" class="bc-panel space-y-4 p-5" style="border-radius:8px">
-            <h2 class="font-bold text-white">Change password</h2>
-            <div><label class="bc-label" for="mp-current-password">Current password</label><input id="mp-current-password" wire:model="currentPassword" type="password" class="bc-field">@error('currentPassword')<p class="text-xs text-rose-300">{{ $message }}</p>@enderror</div>
-            <div><label class="bc-label" for="mp-new-password">New password</label><input id="mp-new-password" wire:model="newPassword" type="password" class="bc-field">@error('newPassword')<p class="text-xs text-rose-300">{{ $message }}</p>@enderror</div>
-            <div><label class="bc-label" for="mp-new-password-confirm">Confirm new password</label><input id="mp-new-password-confirm" wire:model="newPasswordConfirmation" type="password" class="bc-field">@error('newPasswordConfirmation')<p class="text-xs text-rose-300">{{ $message }}</p>@enderror</div>
-            <button type="submit" class="bc-primary">Change password</button>
-        </form>
-
-        <div class="bc-panel space-y-4 p-5" style="border-radius:8px">
-            <h2 class="font-bold text-white">Two-factor authentication</h2>
-            @if(auth()->user()->two_factor_enabled)
-                <p class="text-sm text-emerald-300">Two-factor authentication is enabled.</p>
-                <button wire:click="disableTwoFactor" wire:confirm="Disable two-factor authentication?" class="bc-secondary">Disable 2FA</button>
+            @if($workspace)
+                <div class="flex flex-col items-start gap-3 rounded-xl border border-gray-200 bg-gray-50/60 px-4 py-3 sm:min-w-64 sm:items-stretch dark:border-gray-800 dark:bg-white/[0.02]">
+                    <div class="flex items-center justify-between gap-3">
+                        <div class="flex items-center gap-2">
+                            <span class="grid h-7 w-7 place-items-center rounded-lg bg-brand-50 text-brand-600 dark:bg-brand-500/15 dark:text-brand-400">
+                                <svg class="size-4 stroke-current" viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>
+                            </span>
+                            <span class="truncate text-theme-sm font-semibold text-gray-800 dark:text-white/90">{{ $workspace->name }}</span>
+                        </div>
+                        <span class="shrink-0 rounded-full px-2 py-0.5 text-theme-xs font-medium {{ $workspace->isAutomatic() ? 'bg-brand-50 text-brand-600 dark:bg-brand-500/15 dark:text-brand-400' : 'bg-warning-50 text-warning-600 dark:bg-warning-500/15 dark:text-warning-500' }}">{{ $workspace->operationModeLabel() }}</span>
+                    </div>
+                    <div class="flex flex-wrap gap-1.5">
+                        <a href="{{ route('isp-settings') }}" class="inline-flex items-center gap-1 rounded-lg border border-gray-200 bg-white px-2.5 py-1.5 text-theme-xs font-medium text-gray-600 transition hover:border-brand-300 hover:text-brand-600 dark:border-gray-800 dark:bg-gray-900 dark:text-gray-400 dark:hover:border-brand-500/40 dark:hover:text-brand-400">Settings</a>
+                        <a href="{{ route('isp-gateway') }}" class="inline-flex items-center gap-1 rounded-lg border border-gray-200 bg-white px-2.5 py-1.5 text-theme-xs font-medium text-gray-600 transition hover:border-brand-300 hover:text-brand-600 dark:border-gray-800 dark:bg-gray-900 dark:text-gray-400 dark:hover:border-brand-500/40 dark:hover:text-brand-400">Gateway</a>
+                        <a href="{{ route('isp-subscription') }}" class="inline-flex items-center gap-1 rounded-lg border border-gray-200 bg-white px-2.5 py-1.5 text-theme-xs font-medium text-gray-600 transition hover:border-brand-300 hover:text-brand-600 dark:border-gray-800 dark:bg-gray-900 dark:text-gray-400 dark:hover:border-brand-500/40 dark:hover:text-brand-400">Subscription</a>
+                    </div>
+                </div>
             @else
-                <p class="text-sm text-slate-500">Two-factor authentication is currently disabled.</p>
-                <button wire:click="enableTwoFactor" class="bc-primary">Enable 2FA</button>
+                <span class="inline-flex items-center gap-2 rounded-lg border border-gray-200 px-3 py-2 text-theme-xs font-medium text-gray-500 dark:border-gray-800 dark:bg-white/[0.02] dark:text-gray-400">
+                    <svg class="size-4 stroke-current" viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+                    SaaS platform account
+                </span>
             @endif
         </div>
+    </div>
 
-        <form wire:submit="saveNotificationPreferences" class="bc-panel space-y-4 p-5" style="border-radius:8px">
-            <h2 class="font-bold text-white">Notification preferences</h2>
-            <label class="flex items-center gap-3 text-sm text-slate-300"><input wire:model="notifyEmail" type="checkbox">Email notifications</label>
-            <label class="flex items-center gap-3 text-sm text-slate-300"><input wire:model="notifySms" type="checkbox">SMS notifications</label>
-            <label class="flex items-center gap-3 text-sm text-slate-300"><input wire:model="notifyPush" type="checkbox">Push notifications</label>
-            <button type="submit" class="bc-primary">Save preferences</button>
-        </form>
+    <div class="grid gap-4 lg:grid-cols-2 md:gap-6">
+        <!-- Profile information -->
+        <div class="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03] sm:p-6">
+            <h2 class="text-base font-semibold text-gray-800 dark:text-white/90">Profile information</h2>
+            <form wire:submit="saveProfile" class="mt-5 space-y-5">
+                <div>
+                    <label for="mp-name" class="mb-1.5 block text-theme-sm font-medium text-gray-700 dark:text-gray-400">Name</label>
+                    <input id="mp-name" wire:model="name" class="h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-theme-sm text-gray-800 shadow-theme-xs placeholder:text-gray-400 focus:border-brand-300 focus:ring-3 focus:ring-brand-500/10 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30">
+                    @error('name') <p class="mt-1.5 text-theme-xs text-error-600 dark:text-error-400">{{ $message }}</p> @enderror
+                </div>
+                <div>
+                    <label for="mp-email" class="mb-1.5 block text-theme-sm font-medium text-gray-700 dark:text-gray-400">Email</label>
+                    <input id="mp-email" wire:model="email" type="email" class="h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-theme-sm text-gray-800 shadow-theme-xs placeholder:text-gray-400 focus:border-brand-300 focus:ring-3 focus:ring-brand-500/10 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30">
+                    @error('email') <p class="mt-1.5 text-theme-xs text-error-600 dark:text-error-400">{{ $message }}</p> @enderror
+                </div>
+                <div class="grid gap-5 sm:grid-cols-2">
+                    <div>
+                        <label for="mp-language" class="mb-1.5 block text-theme-sm font-medium text-gray-700 dark:text-gray-400">Language</label>
+                        <select id="mp-language" wire:model="language" class="h-11 w-full appearance-none rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-theme-sm text-gray-800 shadow-theme-xs placeholder:text-gray-400 focus:border-brand-300 focus:ring-3 focus:ring-brand-500/10 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30">
+                            @foreach($languages as $lang)<option value="{{ $lang->code }}">{{ $lang->name }}</option>@endforeach
+                        </select>
+                        @error('language') <p class="mt-1.5 text-theme-xs text-error-600 dark:text-error-400">{{ $message }}</p> @enderror
+                    </div>
+                    <div>
+                        <label for="mp-timezone" class="mb-1.5 block text-theme-sm font-medium text-gray-700 dark:text-gray-400">Timezone</label>
+                        <input id="mp-timezone" wire:model="timezone" class="h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-theme-sm text-gray-800 shadow-theme-xs placeholder:text-gray-400 focus:border-brand-300 focus:ring-3 focus:ring-brand-500/10 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30">
+                        @error('timezone') <p class="mt-1.5 text-theme-xs text-error-600 dark:text-error-400">{{ $message }}</p> @enderror
+                    </div>
+                </div>
+                <button type="submit" class="inline-flex min-h-10 items-center justify-center gap-2 rounded-lg bg-brand-500 px-4 py-2.5 text-theme-sm font-medium text-white shadow-theme-xs transition hover:bg-brand-600 disabled:cursor-not-allowed disabled:opacity-50">Save profile</button>
+            </form>
+        </div>
 
-        <div class="bc-panel space-y-4 p-5 lg:col-span-2" style="border-radius:8px">
-            <div class="flex items-center justify-between"><h2 class="font-bold text-white">Active sessions</h2><button wire:click="terminateOtherSessions" class="bc-secondary">Terminate other sessions</button></div>
-            <ul class="space-y-2 text-sm">
+        <!-- Change password -->
+        <div class="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03] sm:p-6">
+            <h2 class="text-base font-semibold text-gray-800 dark:text-white/90">Change password</h2>
+            <form wire:submit="changePassword" class="mt-5 space-y-5">
+                <div>
+                    <label for="mp-current-password" class="mb-1.5 block text-theme-sm font-medium text-gray-700 dark:text-gray-400">Current password</label>
+                    <input id="mp-current-password" wire:model="currentPassword" type="password" class="h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-theme-sm text-gray-800 shadow-theme-xs placeholder:text-gray-400 focus:border-brand-300 focus:ring-3 focus:ring-brand-500/10 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30">
+                    @error('currentPassword') <p class="mt-1.5 text-theme-xs text-error-600 dark:text-error-400">{{ $message }}</p> @enderror
+                </div>
+                <div>
+                    <label for="mp-new-password" class="mb-1.5 block text-theme-sm font-medium text-gray-700 dark:text-gray-400">New password</label>
+                    <input id="mp-new-password" wire:model="newPassword" type="password" class="h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-theme-sm text-gray-800 shadow-theme-xs placeholder:text-gray-400 focus:border-brand-300 focus:ring-3 focus:ring-brand-500/10 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30">
+                    @error('newPassword') <p class="mt-1.5 text-theme-xs text-error-600 dark:text-error-400">{{ $message }}</p> @enderror
+                </div>
+                <div>
+                    <label for="mp-new-password-confirm" class="mb-1.5 block text-theme-sm font-medium text-gray-700 dark:text-gray-400">Confirm new password</label>
+                    <input id="mp-new-password-confirm" wire:model="newPasswordConfirmation" type="password" class="h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-theme-sm text-gray-800 shadow-theme-xs placeholder:text-gray-400 focus:border-brand-300 focus:ring-3 focus:ring-brand-500/10 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30">
+                    @error('newPasswordConfirmation') <p class="mt-1.5 text-theme-xs text-error-600 dark:text-error-400">{{ $message }}</p> @enderror
+                </div>
+                <button type="submit" class="inline-flex min-h-10 items-center justify-center gap-2 rounded-lg bg-brand-500 px-4 py-2.5 text-theme-sm font-medium text-white shadow-theme-xs transition hover:bg-brand-600 disabled:cursor-not-allowed disabled:opacity-50">Change password</button>
+            </form>
+        </div>
+
+        <!-- Two-factor authentication -->
+        <div class="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03] sm:p-6">
+            <h2 class="text-base font-semibold text-gray-800 dark:text-white/90">Two-factor authentication</h2>
+            <div class="mt-5 space-y-4">
+                @if(auth()->user()->two_factor_enabled)
+                    <p class="text-theme-sm text-success-600 dark:text-success-400">Two-factor authentication is enabled.</p>
+                    <button wire:click="disableTwoFactor" wire:confirm="Disable two-factor authentication?" class="inline-flex min-h-10 items-center justify-center gap-2 rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-theme-sm font-medium text-gray-700 shadow-theme-xs transition hover:bg-gray-50 hover:text-gray-800 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-white/[0.03] dark:hover:text-gray-200">Disable 2FA</button>
+                @else
+                    <p class="text-theme-sm text-gray-500 dark:text-gray-400">Two-factor authentication is currently disabled.</p>
+                    <button wire:click="enableTwoFactor" class="inline-flex min-h-10 items-center justify-center gap-2 rounded-lg bg-brand-500 px-4 py-2.5 text-theme-sm font-medium text-white shadow-theme-xs transition hover:bg-brand-600 disabled:cursor-not-allowed disabled:opacity-50">Enable 2FA</button>
+                @endif
+            </div>
+        </div>
+
+        <!-- Notification preferences -->
+        <div class="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03] sm:p-6">
+            <h2 class="text-base font-semibold text-gray-800 dark:text-white/90">Notification preferences</h2>
+            <form wire:submit="saveNotificationPreferences" class="mt-5 space-y-4">
+                <label class="flex items-center gap-3 text-theme-sm text-gray-700 dark:text-gray-400">
+                    <input wire:model="notifyEmail" type="checkbox" class="h-4.5 w-4.5 rounded border-gray-300 text-brand-500 accent-brand-500 focus:ring-brand-500/30 dark:border-gray-700 dark:bg-gray-900">Email notifications
+                </label>
+                <label class="flex items-center gap-3 text-theme-sm text-gray-700 dark:text-gray-400">
+                    <input wire:model="notifySms" type="checkbox" class="h-4.5 w-4.5 rounded border-gray-300 text-brand-500 accent-brand-500 focus:ring-brand-500/30 dark:border-gray-700 dark:bg-gray-900">SMS notifications
+                </label>
+                <label class="flex items-center gap-3 text-theme-sm text-gray-700 dark:text-gray-400">
+                    <input wire:model="notifyPush" type="checkbox" class="h-4.5 w-4.5 rounded border-gray-300 text-brand-500 accent-brand-500 focus:ring-brand-500/30 dark:border-gray-700 dark:bg-gray-900">Push notifications
+                </label>
+                <button type="submit" class="inline-flex min-h-10 items-center justify-center gap-2 rounded-lg bg-brand-500 px-4 py-2.5 text-theme-sm font-medium text-white shadow-theme-xs transition hover:bg-brand-600 disabled:cursor-not-allowed disabled:opacity-50">Save preferences</button>
+            </form>
+        </div>
+
+        <!-- Active sessions -->
+        <div class="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03] sm:p-6 lg:col-span-2">
+            <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <h2 class="text-base font-semibold text-gray-800 dark:text-white/90">Active sessions</h2>
+                <button wire:click="terminateOtherSessions" class="inline-flex min-h-10 items-center justify-center gap-2 rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-theme-sm font-medium text-gray-700 shadow-theme-xs transition hover:bg-gray-50 hover:text-gray-800 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-white/[0.03] dark:hover:text-gray-200">Terminate other sessions</button>
+            </div>
+            <ul class="mt-4">
                 @foreach($sessions as $s)
-                    <li class="flex items-center justify-between border-b border-white/10 pb-2">
-                        <div><code class="text-slate-400">{{ $s->ip_address }}</code> <span class="text-xs text-slate-600">{{ Str::limit($s->user_agent, 60) }}</span></div>
-                        <div class="flex items-center gap-2">
-                            @if($s->id === $currentSessionId)<span class="text-xs font-bold text-teal-300">This device</span>@endif
-                            <span class="text-xs text-slate-600">{{ \Carbon\Carbon::createFromTimestamp($s->last_activity)->format('d M Y, H:i') }}</span>
+                    <li class="flex items-center justify-between gap-4 border-b border-gray-100 py-3 last:border-0 dark:border-gray-800">
+                        <div class="min-w-0">
+                            <code class="text-theme-sm font-medium text-gray-800 dark:text-white/90">{{ $s->ip_address }}</code>
+                            <span class="text-theme-xs text-gray-500 dark:text-gray-400">{{ Str::limit($s->user_agent, 60) }}</span>
+                        </div>
+                        <div class="flex shrink-0 items-center gap-2">
+                            @if($s->id === $currentSessionId)<span class="rounded-full bg-brand-50 px-2.5 py-0.5 text-theme-xs font-medium text-brand-600 dark:bg-brand-500/15 dark:text-brand-400">This device</span>@endif
+                            <span class="text-theme-xs text-gray-500 dark:text-gray-400">{{ \Carbon\Carbon::createFromTimestamp($s->last_activity)->format('d M Y, H:i') }}</span>
                         </div>
                     </li>
                 @endforeach
             </ul>
         </div>
 
-        <div class="bc-panel space-y-4 p-5 lg:col-span-2" style="border-radius:8px">
-            <h2 class="font-bold text-white">Login history</h2>
-            <ul class="space-y-2 text-sm">
+        <!-- Login history -->
+        <div class="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03] sm:p-6 lg:col-span-2">
+            <h2 class="text-base font-semibold text-gray-800 dark:text-white/90">Login history</h2>
+            <ul class="mt-4">
                 @forelse($loginHistory as $attempt)
-                    <li class="flex items-center justify-between border-b border-white/10 pb-2">
-                        <span class="font-semibold {{ $attempt->successful ? 'text-emerald-300' : 'text-rose-300' }}">{{ $attempt->successful ? 'Success' : 'Failed' }}</span>
-                        <span class="text-xs text-slate-600">{{ $attempt->ip_address }} · {{ $attempt->created_at->format('d M Y, H:i') }}</span>
+                    <li class="flex items-center justify-between gap-4 border-b border-gray-100 py-3 last:border-0 dark:border-gray-800">
+                        @if($attempt->successful)
+                            <span class="rounded-full bg-success-50 px-2.5 py-0.5 text-theme-xs font-medium text-success-600 dark:bg-success-500/15 dark:text-success-500">Success</span>
+                        @else
+                            <span class="rounded-full bg-error-50 px-2.5 py-0.5 text-theme-xs font-medium text-error-600 dark:bg-error-500/15 dark:text-error-500">Failed</span>
+                        @endif
+                        <span class="text-theme-xs text-gray-500 dark:text-gray-400">{{ $attempt->ip_address }} · {{ $attempt->created_at->format('d M Y, H:i') }}</span>
                     </li>
                 @empty
-                    <li class="py-4 text-center text-slate-600">No login history yet.</li>
+                    <li class="py-10 text-center text-theme-sm text-gray-500 dark:text-gray-400">No login history yet.</li>
                 @endforelse
             </ul>
         </div>

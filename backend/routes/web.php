@@ -8,7 +8,11 @@ use App\Models\Tenant;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Password;
+use Illuminate\Support\Str;
 use Illuminate\Support\Facades\Route;
+use Illuminate\Validation\Rule;
 
 Route::middleware('guest')->group(function () {
     Route::get('/login', function () {
@@ -49,6 +53,100 @@ Route::middleware('guest')->group(function () {
     });
 });
 
+Route::middleware('guest')->group(function () {
+    // ISP self-registration
+    Route::get('/register', function () {
+        return view('auth.register');
+    })->name('register');
+
+    Route::post('/register', function (Request $request) {
+        $validated = $request->validate([
+            'name' => ['required', 'string', 'max:255'],
+            'operationMode' => ['required', Rule::in(['automatic', 'manual'])],
+            'businessAddress' => ['required', 'string', 'max:500'],
+            'ownerName' => ['required', 'string', 'max:255'],
+            'ownerEmail' => ['required', 'email', 'max:255', 'unique:users,email'],
+            'ownerPhone' => ['required', 'string', 'max:30'],
+            'password' => ['required', 'string', 'min:8', 'confirmed'],
+        ]);
+
+        $slug = Str::slug($validated['name']);
+        while (Tenant::where('slug', $slug)->exists()) {
+            $slug = Str::slug($validated['name']).'-'.Str::lower(Str::random(4));
+        }
+
+        $tenant = DB::transaction(function () use ($validated, $slug) {
+            $tenant = Tenant::create([
+                'name' => $validated['name'],
+                'slug' => $slug,
+                'status' => 'active',
+                'operation_mode' => $validated['operationMode'],
+                'currency' => 'BDT',
+                'timezone' => 'Asia/Dhaka',
+                'language' => 'en',
+                'owner_name' => $validated['ownerName'],
+                'owner_email' => $validated['ownerEmail'],
+                'owner_phone' => $validated['ownerPhone'],
+                'contact_address' => $validated['businessAddress'],
+            ]);
+
+            $user = User::create([
+                'tenant_id' => $tenant->id,
+                'name' => $validated['ownerName'],
+                'email' => $validated['ownerEmail'],
+                'password' => $validated['password'],
+                'role' => User::ROLE_TENANT_ADMIN,
+                'status' => 'active',
+            ]);
+
+            AuditLog::record('tenant.self_registered', $tenant, ['owner_user_id' => $user->id], tenantId: $tenant->id);
+
+            return $tenant;
+        });
+
+        return redirect()->route('login')->with('status', 'Your ISP workspace was created. Sign in with your owner account to continue.');
+    });
+
+    // Forgot password
+    Route::get('/forgot-password', function () {
+        return view('auth.forgot-password');
+    })->name('password.request');
+
+    Route::post('/forgot-password', function (Request $request) {
+        $request->validate(['email' => ['required', 'email']]);
+
+        $status = Password::sendResetLink($request->only('email'));
+
+        return $status === Password::RESET_LINK_SENT
+            ? back()->with('status', __($status))
+            : back()->withErrors(['email' => __($status)])->onlyInput('email');
+    })->name('password.email');
+
+    // Password reset form
+    Route::get('/reset-password/{token}', function (string $token) {
+        return view('auth.reset-password', ['token' => $token]);
+    })->name('password.reset');
+
+    Route::post('/reset-password', function (Request $request) {
+        $request->validate([
+            'token' => ['required'],
+            'email' => ['required', 'email'],
+            'password' => ['required', 'string', 'min:8', 'confirmed'],
+        ]);
+
+        $status = Password::reset(
+            $request->only('email', 'password', 'password_confirmation', 'token'),
+            function (User $user, string $password) {
+                $user->forceFill(['password' => $password])->save();
+            }
+        );
+
+        return $status === Password::PASSWORD_RESET
+            ? redirect()->route('login')->with('status', __($status))
+            : back()->withErrors(['email' => __($status)])->onlyInput('email');
+    })->name('password.update');
+});
+
 Route::post('/logout', function (Request $request) {
     AuditLog::record('auth.logout');
     Auth::logout();
@@ -64,6 +162,21 @@ Route::middleware('auth')->group(function () {
 
     Route::get('/dashboard', Dashboard::class)->name('dashboard');
     Route::get('/my-profile', App\Livewire\MyProfile::class)->name('my-profile');
+
+    Route::post('/locale', function (Request $request) {
+        $language = \App\Models\Language::query()->where('code', (string) $request->input('locale'))->where('is_active', true)->first();
+
+        abort_unless($language, 422, 'Unsupported language.');
+
+        session(['locale' => $language->code]);
+        app()->setLocale($language->code);
+
+        if (Auth::check()) {
+            Auth::user()->forceFill(['language' => $language->code])->save();
+        }
+
+        return redirect()->back();
+    })->name('locale.switch');
 
     Route::middleware('super-admin')->group(function () {
         Route::get('/tenants', App\Livewire\Tenants::class)->name('tenants');
@@ -113,10 +226,40 @@ Route::middleware('auth')->group(function () {
         Route::get('/customers', App\Livewire\Customers::class)->middleware('role:super_admin,tenant_admin,support,network_engineer')->name('customers');
         Route::get('/packages', App\Livewire\Packages::class)->middleware('role:super_admin,tenant_admin')->name('packages');
         Route::get('/billing', App\Livewire\Billing::class)->middleware('role:super_admin,tenant_admin,finance')->name('billing');
+        Route::get('/billing/invoices/{invoice}/print', function (\App\Models\Invoice $invoice) {
+            $tenantId = app(\App\Support\CurrentTenant::class)->id();
+            abort_unless((int) $invoice->tenant_id === (int) $tenantId, 404, 'Invoice not found in this workspace.');
+
+            $invoice->load(['customer', 'items', 'payments' => fn ($query) => $query->where('status', 'successful')]);
+
+            return view('billing.invoice-print', [
+                'invoice' => $invoice,
+                'branding' => \App\Models\TenantBranding::query()->where('tenant_id', $tenantId)->first(),
+            ]);
+        })->middleware('role:super_admin,tenant_admin,finance')->name('billing.invoice-print');
         Route::get('/payments', App\Livewire\Payments::class)->middleware('role:super_admin,tenant_admin,finance')->name('payments');
         Route::get('/network', App\Livewire\Network::class)->middleware('role:super_admin,tenant_admin,network_engineer')->name('network');
         Route::get('/resellers', App\Livewire\Resellers::class)->middleware('role:super_admin,tenant_admin')->name('resellers');
         Route::get('/reports', App\Livewire\Reports::class)->middleware('role:super_admin,tenant_admin,finance,support,network_engineer')->name('reports');
+        Route::get('/reports/print', function () {
+            $tenantId = app(\App\Support\CurrentTenant::class)->id();
+            $from = \Carbon\Carbon::parse(request('from', now()->startOfMonth()->toDateString()))->startOfDay();
+            $to = \Carbon\Carbon::parse(request('to', now()->toDateString()))->endOfDay();
+
+            $workspace = \App\Models\Tenant::query()->findOrFail($tenantId);
+            $snapshot = \App\Support\ReportSnapshot::forWorkspace($tenantId, $from, $to);
+
+            return view('reports.report-print', [
+                'workspace' => $workspace,
+                'period' => $snapshot['period'],
+                'metrics' => $snapshot['metrics'],
+                'paymentMethods' => $snapshot['paymentMethods'],
+                'invoiceStatuses' => $snapshot['invoiceStatuses'],
+            ]);
+        })->middleware('role:super_admin,tenant_admin,finance,support,network_engineer')->name('reports.print');
+        Route::get('/settings', App\Livewire\IspSettings::class)->middleware('role:super_admin,tenant_admin')->name('isp-settings');
+        Route::get('/gateway', App\Livewire\IspGateway::class)->middleware('role:super_admin,tenant_admin')->name('isp-gateway');
+        Route::get('/subscription', App\Livewire\IspSubscription::class)->middleware('role:super_admin,tenant_admin')->name('isp-subscription');
     });
 });
 

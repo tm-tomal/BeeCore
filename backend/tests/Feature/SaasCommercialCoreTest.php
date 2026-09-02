@@ -26,20 +26,94 @@ class SaasCommercialCoreTest extends TestCase
             ->set('name', 'Professional')
             ->set('slug', 'professional')
             ->set('monthlyPrice', 2500)
-            ->set('yearlyPrice', 25000)
+            ->set('yearlyDiscountPercent', 25)
             ->set('customerLimit', 5000)
+            ->set('overflowRate', 2.5)
             ->set('staffLimit', 20)
             ->set('resellerLimit', 10)
             ->set('trialDays', 14)
             ->set('graceDays', 7)
+            ->set('operationMode', 'automatic')
             ->call('save')
             ->assertHasNoErrors();
 
         $this->assertDatabaseHas('saas_plans', [
             'slug' => 'professional',
             'monthly_price' => 2500,
+            'yearly_discount_percent' => 25,
+            'yearly_price' => 22500,
             'trial_days' => 14,
+            'operation_mode' => 'automatic',
+            'overflow_rate' => 2.5,
         ]);
+    }
+
+    public function test_plan_yearly_price_is_always_derived_from_monthly_with_discount(): void
+    {
+        $plan = SaasPlan::create([
+            'name' => 'Starter', 'slug' => 'derived-yearly', 'monthly_price' => 1000,
+            'yearly_price' => 9999, 'yearly_discount_percent' => 25,
+            'trial_days' => 0, 'grace_days' => 0, 'is_active' => true,
+        ]);
+
+        // Stored fixed amount (9999) is ignored — yearly is derived from the monthly price.
+        $this->assertSame(9000.0, $plan->yearly_price);
+        $this->assertSame(9000.0, $plan->computedYearlyPrice());
+        $this->assertSame(3000.0, $plan->yearlySavings());
+
+        $discounted = SaasPlan::create([
+            'name' => 'Pro', 'slug' => 'derived-pro', 'monthly_price' => 2000,
+            'yearly_discount_percent' => 30, 'trial_days' => 0, 'grace_days' => 0, 'is_active' => true,
+        ]);
+
+        $this->assertSame(16800.0, $discounted->yearly_price);
+    }
+
+    public function test_plan_reports_overflow_charge_above_included_limit(): void
+    {
+        $plan = SaasPlan::create([
+            'name' => 'Growth', 'slug' => 'growth', 'monthly_price' => 1200,
+            'yearly_price' => 12000, 'customer_limit' => 750, 'overflow_rate' => 2.8,
+            'trial_days' => 0, 'grace_days' => 0, 'is_active' => true,
+        ]);
+
+        $this->assertSame(0.0, $plan->overflowChargeFor(600));
+        $this->assertSame(0.0, $plan->overflowChargeFor(750));
+        $this->assertSame(140.0, $plan->overflowChargeFor(800));
+        $this->assertSame(700.0, $plan->overflowChargeFor(1000));
+    }
+
+    public function test_plan_assignment_options_are_filtered_by_tenant_operation_mode(): void
+    {
+        $admin = User::factory()->create();
+        $automaticTenant = $this->tenant();
+        $manualTenant = $this->tenant(['slug' => 'manual-isp', 'operation_mode' => 'manual']);
+
+        $automaticPlan = SaasPlan::create([
+            'name' => 'Auto Pro', 'slug' => 'auto-pro', 'monthly_price' => 3000,
+            'yearly_price' => 30000, 'trial_days' => 0, 'grace_days' => 0,
+            'operation_mode' => 'automatic', 'is_active' => true,
+        ]);
+        $manualPlan = SaasPlan::create([
+            'name' => 'Manual Pro', 'slug' => 'manual-pro', 'monthly_price' => 2000,
+            'yearly_price' => 20000, 'trial_days' => 0, 'grace_days' => 0,
+            'operation_mode' => 'manual', 'is_active' => true,
+        ]);
+        $bothPlan = SaasPlan::create([
+            'name' => 'Starter', 'slug' => 'starter', 'monthly_price' => 1000,
+            'yearly_price' => 10000, 'trial_days' => 0, 'grace_days' => 0,
+            'operation_mode' => 'both', 'is_active' => true,
+        ]);
+
+        Livewire::actingAs($admin)->test(TenantDetails::class, ['tenant' => $automaticTenant])
+            ->assertViewHas('plans', fn ($plans) => $plans->pluck('id')->contains($automaticPlan->id)
+                && $plans->pluck('id')->contains($bothPlan->id)
+                && ! $plans->pluck('id')->contains($manualPlan->id));
+
+        Livewire::actingAs($admin)->test(TenantDetails::class, ['tenant' => $manualTenant])
+            ->assertViewHas('plans', fn ($plans) => $plans->pluck('id')->contains($manualPlan->id)
+                && $plans->pluck('id')->contains($bothPlan->id)
+                && ! $plans->pluck('id')->contains($automaticPlan->id));
     }
 
     public function test_super_admin_can_assign_and_change_a_tenant_subscription(): void
@@ -125,11 +199,11 @@ class SaasCommercialCoreTest extends TestCase
         $this->actingAs($user)->get(route('tenant-details', $tenant))->assertForbidden();
     }
 
-    private function tenant(): Tenant
+    private function tenant(array $attributes = []): Tenant
     {
-        return Tenant::create([
+        return Tenant::create(array_merge([
             'name' => 'Commercial ISP', 'slug' => 'commercial-isp', 'status' => 'active',
             'currency' => 'BDT', 'timezone' => 'Asia/Dhaka',
-        ]);
+        ], $attributes));
     }
 }

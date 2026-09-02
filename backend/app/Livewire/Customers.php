@@ -28,6 +28,9 @@ class Customers extends Component
     public $isEditing = false;
     public $customerId;
 
+    public $search = '';
+    public $statusFilter = '';
+
     public $name = '';
     public $email = '';
     public $phone = '';
@@ -61,6 +64,16 @@ class Customers extends Component
         $this->next_billing_date = today()->toDateString();
         $this->isEditing = false;
         $this->viewMode = 'create';
+    }
+
+    public function updatedSearch(): void
+    {
+        $this->resetPage();
+    }
+
+    public function updatedStatusFilter(): void
+    {
+        $this->resetPage();
     }
 
     public function cancel()
@@ -143,9 +156,32 @@ class Customers extends Component
 
     public function render()
     {
+        $tenantId = app(CurrentTenant::class)->id();
+
+        $customers = Customer::query()
+            ->where('tenant_id', $tenantId)
+            ->with('activeSubscription')
+            ->when($this->search !== '', fn ($query) => $query->where(function ($query) {
+                $query->where('name', 'like', '%'.$this->search.'%')
+                    ->orWhere('email', 'like', '%'.$this->search.'%')
+                    ->orWhere('phone', 'like', '%'.$this->search.'%');
+            }))
+            ->when($this->statusFilter !== '', fn ($query) => $query->where('status', $this->statusFilter))
+            ->latest()
+            ->paginate(10);
+
+        $packages = Package::query()
+            ->where('tenant_id', $tenantId)
+            ->where('is_active', true)
+            ->orderBy('name')
+            ->get();
+
         return view('livewire.customers', [
-            'customers' => $this->customers()->with('activeSubscription')->latest()->paginate(10),
-            'packages' => Package::query()->where('tenant_id', app(CurrentTenant::class)->id())->where('is_active', true)->orderBy('name')->get(),
+            'customers' => $customers,
+            'packages' => $packages,
+            'packageOptions' => collect(['' => 'No recurring package'])->union(
+                $packages->mapWithKeys(fn ($package) => [$package->id => $package->name.($package->bandwidth ? ' ('.$package->bandwidth.')' : '').' — ৳'.number_format($package->price, 2)])
+            )->map(fn ($label, $value) => ['value' => (string) $value, 'label' => (string) $label])->values()->all(),
         ]);
     }
 

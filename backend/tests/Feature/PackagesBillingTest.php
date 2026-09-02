@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Models\User;
 use App\Models\Tenant;
 use App\Models\Customer;
+use App\Models\Package;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Livewire\Livewire;
 use Tests\TestCase;
@@ -65,5 +66,30 @@ class PackagesBillingTest extends TestCase
             'customer_id' => $customer->id,
             'total' => 2500
         ]);
+    }
+
+    public function test_package_cost_is_stored_and_enables_margin(): void
+    {
+        $tenant = Tenant::create(['name' => 'Demo', 'slug' => 'demo', 'status' => 'active', 'currency' => 'BDT', 'timezone' => 'UTC']);
+        $user = User::factory()->create(['tenant_id' => $tenant->id, 'role' => User::ROLE_TENANT_ADMIN]);
+
+        Livewire::actingAs($user)
+            ->test(\App\Livewire\Packages::class)
+            ->set('name', '20 Mbps Fiber')
+            ->set('price', 2000)
+            ->set('cost', 1200)
+            ->set('bandwidth', '20 Mbps')
+            ->call('save')
+            ->assertHasNoErrors();
+
+        $package = Package::where('tenant_id', $tenant->id)->where('name', '20 Mbps Fiber')->firstOrFail();
+        $this->assertSame('1200.00', $package->cost);
+        $this->assertSame('2000.00', $package->price);
+
+        // Editing keeps the cost intact.
+        Livewire::actingAs($user)
+            ->test(\App\Livewire\Packages::class)
+            ->call('edit', $package->id)
+            ->assertSet('cost', '1200.00');
     }
 }

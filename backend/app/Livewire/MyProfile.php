@@ -141,11 +141,16 @@ class MyProfile extends Component
         $user = auth()->user();
         $currentId = session()->getId();
 
+        $workspaceTenantId = session('impersonated_tenant_id') ?? $user->tenant_id;
+        $workspace = $workspaceTenantId ? \App\Models\Tenant::query()->find($workspaceTenantId) : null;
+
         return view('livewire.my-profile', [
             'languages' => Language::where('is_active', true)->orderBy('name')->get(),
             'sessions' => DB::table('sessions')->where('user_id', $user->id)->orderByDesc('last_activity')->get(),
             'currentSessionId' => $currentId,
             'loginHistory' => LoginAttempt::where('email', $user->email)->latest('id')->limit(10)->get(),
+            'workspace' => $workspace,
+            'roleLabel' => ucwords(str_replace('_', ' ', $user->role)),
         ]);
     }
 }

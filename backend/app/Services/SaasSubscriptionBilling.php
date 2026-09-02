@@ -174,7 +174,7 @@ class SaasSubscriptionBilling
         return $updated;
     }
 
-    private function createInvoiceForPeriod(TenantSubscription $subscription, $periodStart, $periodEnd, $dueDate): SaasInvoice
+    public function createInvoiceForPeriod(TenantSubscription $subscription, $periodStart, $periodEnd, $dueDate): SaasInvoice
     {
         $invoice = SaasInvoice::firstOrCreate([
             'tenant_subscription_id' => $subscription->id,

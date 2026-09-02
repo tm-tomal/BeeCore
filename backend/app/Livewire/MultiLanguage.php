@@ -13,6 +13,7 @@ use Livewire\Component;
 class MultiLanguage extends Component
 {
     public string $tab = 'languages';
+    public string $search = '';
 
     // Language form
     public string $viewMode = 'index';
@@ -57,6 +58,11 @@ class MultiLanguage extends Component
     public function cancelForm(): void
     {
         $this->viewMode = 'index';
+    }
+
+    public function updatedSearch(): void
+    {
+        // Search re-renders automatically.
     }
 
     public function save(): void
@@ -149,7 +155,13 @@ class MultiLanguage extends Component
         $translationGrid = Translation::query()->get()->groupBy('key');
 
         return view('livewire.multi-language', [
-            'languages' => Language::query()->orderBy('name')->get(),
+            'languages' => Language::query()
+                ->when($this->search !== '', fn ($query) => $query->where(fn ($q) => $q
+                    ->where('name', 'like', '%'.$this->search.'%')
+                    ->orWhere('code', 'like', '%'.$this->search.'%')
+                    ->orWhere('native_name', 'like', '%'.$this->search.'%')))
+                ->orderBy('name')
+                ->get(),
             'activeLanguages' => $activeLanguages,
             'keys' => $keys,
             'translationGrid' => $translationGrid,

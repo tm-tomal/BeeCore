@@ -35,6 +35,11 @@ class CustomerSubscription extends Model
         return $this->belongsTo(Customer::class);
     }
 
+    public function tenant(): BelongsTo
+    {
+        return $this->belongsTo(Tenant::class);
+    }
+
     public function package(): BelongsTo
     {
         return $this->belongsTo(Package::class);

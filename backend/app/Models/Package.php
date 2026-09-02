@@ -12,6 +12,7 @@ class Package extends Model
         'tenant_id',
         'name',
         'price',
+        'cost',
         'bandwidth',
         'type',
         'is_active',
@@ -19,6 +20,7 @@ class Package extends Model
 
     protected $casts = [
         'price' => 'decimal:2',
+        'cost' => 'decimal:2',
         'is_active' => 'boolean',
     ];
 
