@@ -14,7 +14,7 @@ class DatabaseSeeder extends Seeder
     public function run(): void
     {
         User::updateOrCreate([
-            'email' => 'admin@beecore.test',
+            'email' => 'admin@beecore.com',
         ], [
             'name' => 'BeeCore Admin',
             'password' => Hash::make('password123'),
