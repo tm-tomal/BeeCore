@@ -13,6 +13,8 @@ class CustomerSubscription extends Model
         'customer_id',
         'package_id',
         'package_name',
+        'pppoe_username',
+        'pppoe_password',
         'price',
         'tax_rate',
         'billing_cycle',
@@ -25,6 +27,7 @@ class CustomerSubscription extends Model
     protected $casts = [
         'price' => 'decimal:2',
         'tax_rate' => 'decimal:2',
+        'pppoe_password' => 'encrypted',
         'next_billing_date' => 'date',
         'started_at' => 'date',
         'ended_at' => 'date',

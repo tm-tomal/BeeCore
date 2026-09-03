@@ -21,4 +21,13 @@ class SystemSetting extends Model
         self::updateOrCreate(['key' => $key], ['value' => $value, 'updated_by' => $updatedBy]);
         Cache::forget('system_setting.'.$key);
     }
+
+    /**
+     * Platform-managed Bee Payment Gateway processing fee (%).
+     * ISPs only enable the gateway; the fee is set here on the platform side.
+     */
+    public static function beeFeePercent(): int
+    {
+        return (int) self::get('bee_gateway_fee_percent', 2);
+    }
 }

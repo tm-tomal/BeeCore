@@ -44,7 +44,7 @@
 
     $saasIcons = [
         'tenants' => 'briefcase', 'isp-onboarding' => 'onboarding', 'saas-plans' => 'layers',
-        'subscriptions' => 'repeat', 'saas-billing' => 'card', 'saas-payments' => 'dollar',
+        'subscriptions' => 'repeat', 'saas-billing' => 'card',
         'payment-gateways' => 'card', 'add-ons' => 'box', 'feature-modules' => 'grid',
         'multi-language' => 'globe', 'multi-currency' => 'banknote', 'white-label' => 'pen',
         'customer-app' => 'phone', 'media-server' => 'monitor', 'sms-management' => 'chat',
@@ -94,7 +94,7 @@
         <nav class="space-y-6">
             <!-- Main group -->
             <div>
-                <h3 class="sidebar-heading mb-3 text-xs font-semibold uppercase leading-5 tracking-wide text-gray-400 dark:text-gray-500">Menu</h3>
+                <h3 class="sidebar-heading mb-3 text-xs font-semibold uppercase leading-5 tracking-wide text-gray-400 dark:text-gray-500">{{ __('Menu') }}</h3>
                 <ul class="space-y-1">
                     <li>
                         <a href="{{ route('dashboard') }}" @click="sidebarOpen = false" class="menu-item {{ $isRouteActive('dashboard') ? 'menu-item-active' : 'menu-item-inactive' }}">
@@ -143,6 +143,7 @@
                                 ['route' => 'customers', 'label' => 'Subscribers', 'icon' => 'users', 'roles' => [\App\Models\User::ROLE_SUPER_ADMIN, \App\Models\User::ROLE_TENANT_ADMIN, \App\Models\User::ROLE_SUPPORT, \App\Models\User::ROLE_NETWORK_ENGINEER]],
                                 ['route' => 'packages', 'label' => 'Service plans', 'icon' => 'box', 'roles' => [\App\Models\User::ROLE_SUPER_ADMIN, \App\Models\User::ROLE_TENANT_ADMIN]],
                                 ['route' => 'network', 'label' => 'Network', 'icon' => 'server', 'roles' => [\App\Models\User::ROLE_SUPER_ADMIN, \App\Models\User::ROLE_TENANT_ADMIN, \App\Models\User::ROLE_NETWORK_ENGINEER], 'automaticOnly' => true],
+                                ['route' => 'issues', 'label' => 'Issues', 'icon' => 'chat', 'roles' => [\App\Models\User::ROLE_SUPER_ADMIN, \App\Models\User::ROLE_TENANT_ADMIN, \App\Models\User::ROLE_SUPPORT, \App\Models\User::ROLE_NETWORK_ENGINEER]],
                             ],
                         ],
                         [
@@ -151,6 +152,12 @@
                                 ['route' => 'billing', 'label' => 'Bills & invoices', 'icon' => 'receipt', 'roles' => [\App\Models\User::ROLE_SUPER_ADMIN, \App\Models\User::ROLE_TENANT_ADMIN, \App\Models\User::ROLE_FINANCE]],
                                 ['route' => 'payments', 'label' => 'Collections', 'icon' => 'dollar', 'roles' => [\App\Models\User::ROLE_SUPER_ADMIN, \App\Models\User::ROLE_TENANT_ADMIN, \App\Models\User::ROLE_FINANCE]],
                                 ['route' => 'isp-gateway', 'label' => 'Payment methods', 'icon' => 'banknote', 'roles' => [\App\Models\User::ROLE_SUPER_ADMIN, \App\Models\User::ROLE_TENANT_ADMIN]],
+                            ],
+                        ],
+                        [
+                            'heading' => 'Cable & coverage',
+                            'items' => [
+                                ['route' => 'cable-map', 'label' => 'Cable & fiber map', 'icon' => 'share', 'roles' => [\App\Models\User::ROLE_SUPER_ADMIN, \App\Models\User::ROLE_TENANT_ADMIN, \App\Models\User::ROLE_NETWORK_ENGINEER]],
                             ],
                         ],
                         [
@@ -164,6 +171,8 @@
                             'heading' => 'Workspace',
                             'items' => [
                                 ['route' => 'isp-subscription', 'label' => 'My BeeCore plan', 'icon' => 'repeat', 'roles' => [\App\Models\User::ROLE_SUPER_ADMIN, \App\Models\User::ROLE_TENANT_ADMIN]],
+                                ['route' => 'isp-addons', 'label' => 'Add-on store', 'icon' => 'box', 'roles' => [\App\Models\User::ROLE_SUPER_ADMIN, \App\Models\User::ROLE_TENANT_ADMIN]],
+                                ['route' => 'support', 'label' => 'Support', 'icon' => 'help', 'roles' => [\App\Models\User::ROLE_SUPER_ADMIN, \App\Models\User::ROLE_TENANT_ADMIN, \App\Models\User::ROLE_SUPPORT]],
                                 ['route' => 'isp-settings', 'label' => 'Workspace settings', 'icon' => 'sliders', 'roles' => [\App\Models\User::ROLE_SUPER_ADMIN, \App\Models\User::ROLE_TENANT_ADMIN]],
                             ],
                         ],

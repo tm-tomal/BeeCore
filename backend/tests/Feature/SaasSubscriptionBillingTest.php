@@ -144,6 +144,50 @@ class SaasSubscriptionBillingTest extends TestCase
         $this->assertSame(1, SaasInvoice::query()->where('tenant_subscription_id', $subscription->id)->count());
     }
 
+    public function test_recurring_addon_renews_and_generates_next_invoice(): void
+    {
+        $plan = $this->plan();
+        $tenant = $this->tenant('addon-renews');
+        TenantSubscription::create([
+            'tenant_id' => $tenant->id,
+            'saas_plan_id' => $plan->id,
+            'status' => 'active',
+            'billing_cycle' => 'monthly',
+            'price' => 2500,
+            'starts_at' => today()->subMonth(),
+            'current_period_ends_at' => today()->addDays(20),
+            'grace_ends_at' => today()->addDays(27),
+            'auto_renew' => true,
+        ]);
+
+        $addon = \App\Models\Addon::create([
+            'name' => 'SMS Pack', 'slug' => 'sms-pack-'.uniqid(), 'category' => 'sms',
+            'price' => 500, 'billing_cycle' => 'monthly', 'is_active' => true,
+        ]);
+        $tenantAddon = \App\Models\TenantAddon::create([
+            'tenant_id' => $tenant->id,
+            'addon_id' => $addon->id,
+            'status' => 'active',
+            'price' => 500,
+            'billing_cycle' => 'monthly',
+            'starts_at' => now(),
+            'period_start' => today()->subMonth()->addDay(),
+            'period_end' => today()->subDay(),
+            'auto_renew' => true,
+        ]);
+
+        $summary = app(SaasSubscriptionBilling::class)->processDue();
+
+        $this->assertSame(1, $summary['addons_renewed']);
+        $invoice = SaasInvoice::where('tenant_addon_id', $tenantAddon->id)->firstOrFail();
+        $this->assertSame('pending', $invoice->status);
+        $this->assertNotNull($invoice->tenant_subscription_id);
+
+        $fresh = $tenantAddon->fresh();
+        $this->assertSame($invoice->period_start->toDateString(), $fresh->period_start->toDateString());
+        $this->assertSame($invoice->period_end->toDateString(), $fresh->period_end->toDateString());
+    }
+
     private function plan(): SaasPlan
     {
         return SaasPlan::create([

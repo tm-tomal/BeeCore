@@ -35,4 +35,17 @@ return [
         ],
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | BeeCore hosted payments (bKash Tokenized Checkout)
+    |--------------------------------------------------------------------------
+    | The callback URL must be HTTPS and registered in the bKash merchant
+    | portal. Production normally uses APP_URL, but when the app runs behind
+    | a tunnel or a different public domain than APP_URL you can override the
+    | exact callback with BEE_PAY_CALLBACK_URL (e.g. https://pay.example.com/bee-pay/bkash/callback).
+    */
+    'beecore' => [
+        'callback_url' => env('BEE_PAY_CALLBACK_URL'),
+    ],
+
 ];

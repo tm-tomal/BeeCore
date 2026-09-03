@@ -178,7 +178,7 @@ class Dashboard extends Component
         return view('livewire.dashboard', [
             'workspaceName' => $tenant?->name ?? 'SaaS portfolio',
             'isSaasView' => $tenantId === null,
-            'rangeLabel' => $months.' months',
+            'rangeLabel' => __(':months months', ['months' => $months]),
             'charts' => $charts,
             'insights' => $insights,
             'metrics' => [

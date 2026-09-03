@@ -17,6 +17,10 @@ return Application::configure(basePath: dirname(__DIR__))
             'super-admin' => \App\Http\Middleware\EnsureSuperAdmin::class,
             'tenant-context' => \App\Http\Middleware\TenantContext::class,
         ]);
+
+        // bKash server calls this URL back after a customer finishes in their
+        // wallet page; it does not carry a session CSRF token.
+        $middleware->validateCsrfTokens(except: ['bee-pay/bkash/callback']);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         $exceptions->shouldRenderJsonWhen(

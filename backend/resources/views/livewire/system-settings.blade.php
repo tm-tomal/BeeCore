@@ -107,6 +107,28 @@
             </div>
         </div>
 
+        <!-- Bee gateway -->
+        <div class="rounded-2xl border border-gray-200 bg-white p-5 shadow-theme-xs dark:border-gray-800 dark:bg-white/[0.03] sm:p-6">
+            <div class="flex items-start gap-2.5">
+                <span class="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-brand-500/15 text-brand-600 dark:text-brand-400">
+                    <svg class="size-5 stroke-current" viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a5 5 0 0 1 4.9 6.2A6 6 0 0 1 18 14a6 6 0 0 1-12 0 6 6 0 0 1 1.1-7.8A5 5 0 0 1 12 2z"/></svg>
+                </span>
+                <div>
+                    <h2 class="text-base font-semibold text-gray-800 dark:text-white/90">Bee Payment Gateway fee</h2>
+                    <p class="mt-0.5 text-theme-sm text-gray-500 dark:text-gray-400">Processing fee shown to ISP customers. ISPs just enable the gateway — they cannot edit this.</p>
+                </div>
+            </div>
+            <div class="mt-5 max-w-xs">
+                <label for="ss-bee-fee" class="mb-1.5 block text-theme-sm font-medium text-gray-700 dark:text-gray-400">Processing fee (%)</label>
+                <div class="relative">
+                    <input id="ss-bee-fee" wire:model="beeFeePercent" type="number" min="0" max="50" class="h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-theme-sm text-gray-800 shadow-theme-xs placeholder:text-gray-400 focus:border-brand-300 focus:ring-3 focus:ring-brand-500/10 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30 dark:focus:border-brand-800">
+                    <span class="pointer-events-none absolute inset-y-0 right-4 flex items-center text-theme-sm text-gray-400">%</span>
+                </div>
+                <p class="mt-1.5 text-theme-xs text-gray-500 dark:text-gray-400">Deducted from each customer payment made through the Bee gateway.</p>
+                @error('beeFeePercent') <p class="mt-1.5 text-theme-xs text-error-600 dark:text-error-400">{{ $message }}</p> @enderror
+            </div>
+        </div>
+
         <!-- File uploads & storage -->
         <div class="rounded-2xl border border-gray-200 bg-white p-5 shadow-theme-xs dark:border-gray-800 dark:bg-white/[0.03] sm:p-6">
             <h2 class="text-base font-semibold text-gray-800 dark:text-white/90">File uploads &amp; storage</h2>

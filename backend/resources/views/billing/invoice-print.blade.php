@@ -228,14 +228,20 @@
             $collection = $tenant?->settings['collection'] ?? [];
             $collectionMode = $collection['mode'] ?? 'bee';
             $collectionMethods = $collection['methods'] ?? [];
+            $beeFeePercent = \App\Models\SystemSetting::beeFeePercent();
         @endphp
         <div style="padding:0 48px 22px">
             <div style="border:1px solid #e5e7eb;border-radius:10px;background:#f9fafb;padding:14px 18px">
                 <p style="margin:0 0 8px;font-size:10px;text-transform:uppercase;letter-spacing:.1em;color:#9ca3af;font-weight:700">Payment instructions</p>
                 @if($collectionMode === 'bee')
+                    @php $payLink = route('bee-pay.invoice', ['invoice' => $invoice->id]); @endphp
                     <p style="margin:0;font-size:13px;color:#374151;line-height:1.6">
-                        Pay securely through the <strong>Bee Payment Gateway</strong>. A <strong>{{ (int) ($collection['bee_fee_percent'] ?? 2) }}%</strong> processing fee applies.
+                        Pay securely online through the <strong>Bee Payment Gateway</strong>. A <strong>{{ $beeFeePercent }}%</strong> processing fee applies.
                     </p>
+                    <p style="margin:10px 0 0;font-size:13px">
+                        <a href="{{ $payLink }}" style="color:#465FFF;font-weight:700;text-decoration:none">Pay {{ $invoice->invoice_number }} online →</a>
+                    </p>
+                    <p style="margin:8px 0 0;font-size:11px;color:#6b7280;word-break:break-all">{{ $payLink }}</p>
                 @else
                     @if(($collectionMethods['bkash']['enabled'] ?? false) && ($collectionMethods['bkash']['number'] ?? null))
                         <p style="margin:0 0 4px;font-size:13px;color:#374151"><strong>bKash:</strong> {{ $collectionMethods['bkash']['number'] }}</p>

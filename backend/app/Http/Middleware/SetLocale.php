@@ -15,6 +15,7 @@ class SetLocale
 
         if (is_string($code) && preg_match('/^[a-z]{2}(-[A-Za-z]{2,4})?$/', $code)) {
             app()->setLocale($code);
+            \Carbon\Carbon::setLocale($code);
         }
 
         return $next($request);

@@ -18,23 +18,23 @@ class SaasBillingConsoleTest extends TestCase
 {
     use RefreshDatabase;
 
-    private function tenant(): Tenant
+    private function tenant(array $overrides = []): Tenant
     {
-        return Tenant::create([
+        return Tenant::create(array_merge([
             'name' => 'Billing Console ISP', 'slug' => 'billing-console-isp-'.uniqid(), 'status' => 'active',
             'currency' => 'BDT', 'timezone' => 'Asia/Dhaka',
-        ]);
+        ], $overrides));
     }
 
-    private function invoiceWithCharge(Tenant $tenant, string $status = 'pending'): SaasInvoice
+    private function invoiceWithCharge(Tenant $tenant, string $status = 'pending', array $extra = []): SaasInvoice
     {
         $plan = SaasPlan::create(['name' => 'Starter', 'slug' => 'starter-'.uniqid(), 'monthly_price' => 1000, 'yearly_price' => 10000, 'trial_days' => 0, 'grace_days' => 5, 'is_active' => true]);
-        $subscription = TenantSubscription::create([
+        $subscription = TenantSubscription::create(array_merge([
             'tenant_id' => $tenant->id, 'saas_plan_id' => $plan->id, 'status' => 'active',
             'billing_cycle' => 'monthly', 'price' => 1000,
             'starts_at' => today()->subMonth(), 'current_period_ends_at' => today(),
             'grace_ends_at' => today()->addDays(5), 'auto_renew' => true,
-        ]);
+        ], $extra['subscription'] ?? []));
         $invoice = SaasInvoice::create([
             'tenant_id' => $tenant->id, 'tenant_subscription_id' => $subscription->id,
             'invoice_number' => 'SAAS-TEST-'.uniqid(), 'status' => $status,
@@ -129,5 +129,132 @@ class SaasBillingConsoleTest extends TestCase
             ->assertHasErrors(['refundAmount']);
 
         $this->assertDatabaseMissing('saas_refunds', ['saas_payment_id' => $payment->id]);
+    }
+
+    public function test_super_admin_can_delete_a_payment_and_the_invoice_reopens(): void
+    {
+        $admin = User::factory()->create();
+        $tenant = $this->tenant();
+        $invoice = $this->invoiceWithCharge($tenant, 'paid');
+        $payment = SaasPayment::create([
+            'tenant_id' => $tenant->id, 'saas_invoice_id' => $invoice->id, 'recorded_by' => $admin->id,
+            'amount' => 1000, 'method' => 'bkash', 'status' => 'completed', 'paid_at' => now(),
+        ]);
+
+        Livewire::actingAs($admin)->test(SaasBilling::class)
+            ->call('viewInvoice', $invoice->id)
+            ->assertSee('Payments & refunds')
+            ->call('deletePayment', $payment->id)
+            ->assertHasNoErrors();
+
+        $this->assertDatabaseMissing('saas_payments', ['id' => $payment->id]);
+        $invoice->refresh();
+        $this->assertNotSame('paid', $invoice->status);
+        $this->assertNull($invoice->paid_at);
+    }
+
+    public function test_super_admin_cannot_delete_a_payment_that_has_refunds(): void
+    {
+        $admin = User::factory()->create();
+        $tenant = $this->tenant();
+        $invoice = $this->invoiceWithCharge($tenant, 'paid');
+        $payment = SaasPayment::create([
+            'tenant_id' => $tenant->id, 'saas_invoice_id' => $invoice->id, 'recorded_by' => $admin->id,
+            'amount' => 1000, 'method' => 'manual', 'status' => 'completed', 'paid_at' => now(),
+        ]);
+        \App\Models\SaasRefund::create([
+            'tenant_id' => $tenant->id, 'saas_payment_id' => $payment->id, 'amount' => 1000,
+            'reason' => 'Outage', 'refunded_by' => $admin->id, 'refunded_at' => now(),
+        ]);
+
+        // The action is rejected server-side (abort 422) — the payment stays put.
+        Livewire::actingAs($admin)->test(SaasBilling::class)
+            ->call('deletePayment', $payment->id);
+
+        $this->assertDatabaseHas('saas_payments', ['id' => $payment->id]);
+    }
+
+    public function test_super_admin_can_delete_an_invoice_permanently(): void
+    {
+        $admin = User::factory()->create();
+        $tenant = $this->tenant();
+        $invoice = $this->invoiceWithCharge($tenant, 'pending');
+        SaasPayment::create([
+            'tenant_id' => $tenant->id, 'saas_invoice_id' => $invoice->id, 'recorded_by' => $admin->id,
+            'amount' => 1000, 'method' => 'bkash', 'status' => 'completed', 'paid_at' => now(),
+        ]);
+
+        Livewire::actingAs($admin)->test(SaasBilling::class)
+            ->call('deleteInvoice', $invoice->id)
+            ->assertHasNoErrors();
+
+        $this->assertDatabaseMissing('saas_invoices', ['id' => $invoice->id]);
+        $this->assertDatabaseMissing('saas_payments', ['saas_invoice_id' => $invoice->id]);
+    }
+
+    public function test_recording_a_completed_payment_settles_the_invoice_and_reactivates_a_suspended_tenant(): void
+    {
+        $admin = User::factory()->create();
+        $tenant = $this->tenant(['status' => 'suspended']);
+        $invoice = $this->invoiceWithCharge($tenant, 'pending', ['subscription' => ['status' => 'past_due']]);
+
+        Livewire::actingAs($admin)->test(SaasBilling::class)
+            ->call('openRecordPayment', $invoice->id)
+            ->set('recordAmount', 1000)
+            ->set('recordMethod', 'bank_transfer')
+            ->set('recordReference', 'TXN-1')
+            ->call('recordPayment')
+            ->assertHasNoErrors();
+
+        $this->assertDatabaseHas('saas_payments', ['saas_invoice_id' => $invoice->id, 'status' => 'completed', 'amount' => 1000]);
+        $this->assertDatabaseHas('saas_invoices', ['id' => $invoice->id, 'status' => 'paid']);
+        $this->assertDatabaseHas('tenants', ['id' => $tenant->id, 'status' => 'active']);
+    }
+
+    public function test_pending_payment_requires_verification_before_settling_the_invoice(): void
+    {
+        $admin = User::factory()->create();
+        $tenant = $this->tenant();
+        $invoice = $this->invoiceWithCharge($tenant, 'pending');
+
+        Livewire::actingAs($admin)->test(SaasBilling::class)
+            ->call('openRecordPayment', $invoice->id)
+            ->set('recordAmount', 1000)
+            ->set('recordAsPending', true)
+            ->call('recordPayment')
+            ->assertHasNoErrors();
+
+        $payment = SaasPayment::where('saas_invoice_id', $invoice->id)->firstOrFail();
+        $this->assertSame('pending', $payment->status);
+        $this->assertDatabaseHas('saas_invoices', ['id' => $invoice->id, 'status' => 'pending']);
+
+        Livewire::actingAs($admin)->test(SaasBilling::class)
+            ->call('verifyPayment', $payment->id)
+            ->assertHasNoErrors();
+
+        $this->assertDatabaseHas('saas_payments', ['id' => $payment->id, 'status' => 'completed']);
+        $this->assertDatabaseHas('saas_invoices', ['id' => $invoice->id, 'status' => 'paid']);
+    }
+
+    public function test_a_pending_payment_can_be_marked_failed(): void
+    {
+        $admin = User::factory()->create();
+        $tenant = $this->tenant();
+        $invoice = $this->invoiceWithCharge($tenant, 'pending');
+
+        Livewire::actingAs($admin)->test(SaasBilling::class)
+            ->call('openRecordPayment', $invoice->id)
+            ->set('recordAmount', 1000)
+            ->set('recordAsPending', true)
+            ->call('recordPayment');
+
+        $payment = SaasPayment::where('saas_invoice_id', $invoice->id)->firstOrFail();
+
+        Livewire::actingAs($admin)->test(SaasBilling::class)
+            ->call('markFailed', $payment->id)
+            ->assertHasNoErrors();
+
+        $this->assertDatabaseHas('saas_payments', ['id' => $payment->id, 'status' => 'failed']);
+        $this->assertDatabaseHas('saas_invoices', ['id' => $invoice->id, 'status' => 'pending']);
     }
 }

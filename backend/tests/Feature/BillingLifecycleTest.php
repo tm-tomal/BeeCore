@@ -176,6 +176,49 @@ class BillingLifecycleTest extends TestCase
             ->assertNotFound();
     }
 
+    public function test_tenant_admin_can_delete_payment_and_reopens_paid_invoice(): void
+    {
+        [$tenant, $user, $customer] = $this->billingActor('delete');
+        $user->update(['role' => User::ROLE_TENANT_ADMIN]);
+        $invoice = $this->invoice($tenant, $customer, 1000, 'INV-DEL');
+
+        app(PaymentAllocator::class)->allocate($tenant->id, $invoice->id, 1000, 'cash');
+        $payment = \App\Models\Payment::query()->where('tenant_id', $tenant->id)->firstOrFail();
+        $this->assertSame('paid', $invoice->fresh()->status);
+
+        Livewire::actingAs($user)
+            ->test(Payments::class)
+            ->call('deletePayment', $payment->id)
+            ->assertHasNoErrors()
+            ->assertSet('viewMode', 'index');
+
+        $this->assertDatabaseMissing('payments', ['id' => $payment->id]);
+        $invoice->refresh();
+        $this->assertSame('pending', $invoice->status);
+        $this->assertSame('0.00', $invoice->paid_amount);
+        $this->assertSame('1000.00', $invoice->outstanding_amount);
+    }
+
+    public function test_finance_user_cannot_delete_payments_and_does_not_see_delete_action(): void
+    {
+        [$tenant, $user, $customer] = $this->billingActor('finance-no-delete');
+        $invoice = $this->invoice($tenant, $customer, 500, 'INV-FND');
+        app(PaymentAllocator::class)->allocate($tenant->id, $invoice->id, 500, 'cash');
+        $payment = \App\Models\Payment::query()->where('tenant_id', $tenant->id)->firstOrFail();
+
+        Livewire::actingAs($user)
+            ->test(Payments::class)
+            ->assertSee('All payments')
+            ->assertDontSee('Delete payment');
+
+        Livewire::actingAs($user)
+            ->test(Payments::class)
+            ->call('deletePayment', $payment->id)
+            ->assertStatus(403);
+
+        $this->assertDatabaseHas('payments', ['id' => $payment->id]);
+    }
+
     private function billingActor(string $slug): array
     {
         $tenant = Tenant::create([

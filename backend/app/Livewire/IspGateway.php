@@ -2,6 +2,7 @@
 
 namespace App\Livewire;
 
+use App\Models\SystemSetting;
 use App\Models\Tenant;
 use App\Models\User;
 use App\Support\AuthorizesRoles;
@@ -20,7 +21,6 @@ class IspGateway extends Component
     }
 
     public string $collectionMode = 'bee';
-    public int $beeFeePercent = 2;
 
     public bool $bkashEnabled = false;
     public string $bkashNumber = '';
@@ -35,7 +35,6 @@ class IspGateway extends Component
         $config = $tenant->settings['collection'] ?? [];
 
         $this->collectionMode = $config['mode'] ?? 'bee';
-        $this->beeFeePercent = (int) ($config['bee_fee_percent'] ?? 2);
 
         $methods = $config['methods'] ?? [];
         $this->bkashEnabled = (bool) ($methods['bkash']['enabled'] ?? false);
@@ -50,7 +49,6 @@ class IspGateway extends Component
     {
         return [
             'collectionMode' => ['required', 'in:bee,own'],
-            'beeFeePercent' => ['required', 'integer', 'min:0', 'max:20'],
             'bkashNumber' => ['nullable', 'string', 'max:30'],
             'nagadNumber' => ['nullable', 'string', 'max:30'],
             'bankDetails' => ['nullable', 'string', 'max:255'],
@@ -66,7 +64,6 @@ class IspGateway extends Component
 
         $settings['collection'] = [
             'mode' => $this->collectionMode,
-            'bee_fee_percent' => $this->collectionMode === 'bee' ? $this->beeFeePercent : null,
             'methods' => [
                 'bkash' => ['enabled' => $this->bkashEnabled, 'number' => $this->bkashNumber ?: null],
                 'nagad' => ['enabled' => $this->nagadEnabled, 'number' => $this->nagadNumber ?: null],
@@ -83,6 +80,7 @@ class IspGateway extends Component
     {
         return view('livewire.isp-gateway', [
             'workspace' => $this->tenant(),
+            'beeFeePercent' => SystemSetting::beeFeePercent(),
         ]);
     }
 

@@ -112,7 +112,7 @@
         @keydown.meta.k.window.prevent="openGlobalSearch()"
         @keydown.ctrl.k.window.prevent="openGlobalSearch()"
     >
-        <a href="#main-content" class="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-[999999] focus:rounded-lg focus:bg-brand-500 focus:px-4 focus:py-2 focus:text-white">Skip to content</a>
+        <a href="#main-content" class="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-[999999] focus:rounded-lg focus:bg-brand-500 focus:px-4 focus:py-2 focus:text-white">{{ __('Skip to content') }}</a>
 
         <!-- Page Wrapper -->
         <div class="flex h-screen overflow-hidden">
@@ -144,7 +144,7 @@
                             <div class="relative min-w-0 flex-1 lg:max-w-md">
                                 <button type="button" @click="openGlobalSearch()" class="flex h-10 w-full items-center gap-2.5 rounded-lg border border-gray-300 bg-transparent px-3.5 text-theme-sm text-gray-400 shadow-theme-xs transition hover:border-brand-300 hover:text-gray-500 focus:border-brand-300 focus:ring-3 focus:ring-brand-500/10 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:placeholder:text-white/30 dark:hover:border-gray-600 dark:focus:border-brand-800 dark:hover:text-gray-300">
                                     <svg class="size-4 shrink-0 stroke-current" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-                                    <span class="min-w-0 flex-1 truncate text-left text-theme-sm">Search pages, customers, tenants...</span>
+                                    <span class="min-w-0 flex-1 truncate text-left text-theme-sm">{{ __('Search pages, customers, tenants...') }}</span>
                                     <kbd class="hidden shrink-0 rounded border border-gray-200 bg-gray-50 px-1.5 py-0.5 text-theme-xs font-medium text-gray-400 sm:inline-block dark:border-gray-700 dark:bg-gray-800 dark:text-gray-500">/</kbd>
                                 </button>
                             </div>
@@ -180,7 +180,7 @@
                                             </button>
                                         </form>
                                     @empty
-                                        <p class="px-3 py-2 text-theme-xs text-gray-400">No active languages.</p>
+                                        <p class="px-3 py-2 text-theme-xs text-gray-400">{{ __('No active languages.') }}</p>
                                     @endforelse
                                 </div>
                             </div>
@@ -239,11 +239,11 @@
                                         <svg class="size-5 stroke-current" viewBox="0 0 24 24" fill="none" stroke-width="1.8"><path d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/></svg>
                                     </span>
                                     <div>
-                                        <p class="text-theme-sm font-semibold text-warning-700 dark:text-warning-400">Viewing tenant workspace — {{ session('impersonated_tenant_name') }}</p>
-                                        <p class="text-theme-xs text-warning-600/80 dark:text-warning-500/70">Actions here are performed as the tenant workspace and are fully audited.</p>
+                                        <p class="text-theme-sm font-semibold text-warning-700 dark:text-warning-400">{{ __('Viewing tenant workspace — :name', ['name' => session('impersonated_tenant_name')]) }}</p>
+                                        <p class="text-theme-xs text-warning-600/80 dark:text-warning-500/70">{{ __('Actions here are performed as the tenant workspace and are fully audited.') }}</p>
                                     </div>
                                 </div>
-                                <a href="{{ route('leave-impersonation') }}" class="inline-flex shrink-0 items-center justify-center gap-2 rounded-lg bg-warning-500 px-4 py-2.5 text-theme-sm font-medium text-white shadow-theme-xs hover:bg-warning-600">Exit workspace</a>
+                                <a href="{{ route('leave-impersonation') }}" class="inline-flex shrink-0 items-center justify-center gap-2 rounded-lg bg-warning-500 px-4 py-2.5 text-theme-sm font-medium text-white shadow-theme-xs hover:bg-warning-600">{{ __('Exit workspace') }}</a>
                             </div>
                         @endif
 
@@ -276,7 +276,7 @@
                         x-ref="globalSearchInput"
                         x-model="globalQuery"
                         type="text"
-                        placeholder="Search pages, customers, tenants..."
+                        placeholder="{{ __('Search pages, customers, tenants...') }}"
                         @keydown.escape.prevent="globalSearchOpen = false"
                         class="h-9 w-full bg-transparent text-theme-sm text-gray-800 placeholder:text-gray-400 focus:outline-hidden dark:text-white/90 dark:placeholder:text-white/30"
                     >
@@ -307,7 +307,7 @@
 
                     <div x-show="filteredGlobalResults().length === 0" class="px-4 py-10 text-center">
                         <p class="text-theme-sm text-gray-500 dark:text-gray-400">
-                            No results for "<span class="font-medium text-gray-700 dark:text-gray-200" x-text="globalQuery"></span>"
+                            {{ __('No results for') }} "<span class="font-medium text-gray-700 dark:text-gray-200" x-text="globalQuery"></span>"
                         </p>
                     </div>
                 </div>

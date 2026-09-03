@@ -177,6 +177,29 @@ class AddOns extends Component
         session()->flash('message', 'Add-on assignment cancelled.');
     }
 
+    public function approveRequest(int $id): void
+    {
+        $this->assertSuperAdmin();
+        $assignment = TenantAddon::whereIn('status', ['requested', 'pending_approval'])->with('addon')->findOrFail($id);
+
+        abort_unless($assignment->addon?->is_active && ! $assignment->addon->archived_at, 422, 'This add-on is no longer available.');
+
+        $assignment->update(['status' => 'active', 'starts_at' => now(), 'assigned_by' => auth()->id()]);
+
+        AuditLog::record('addon.request_approved', $assignment, ['addon_id' => $assignment->addon_id], tenantId: $assignment->tenant_id);
+        session()->flash('message', 'Add-on request approved and activated.');
+    }
+
+    public function declineRequest(int $id): void
+    {
+        $this->assertSuperAdmin();
+        $assignment = TenantAddon::whereIn('status', ['requested', 'pending_approval'])->findOrFail($id);
+        $assignment->update(['status' => 'cancelled', 'cancelled_at' => now()]);
+
+        AuditLog::record('addon.request_declined', $assignment, ['addon_id' => $assignment->addon_id], tenantId: $assignment->tenant_id);
+        session()->flash('message', 'Add-on request declined.');
+    }
+
     public function openUsage(int $assignmentId): void
     {
         $this->usageForAssignmentId = $assignmentId;
@@ -206,12 +229,25 @@ class AddOns extends Component
     {
         $this->assertSuperAdmin();
 
+        $addons = Addon::query()->whereNull('archived_at')->withCount(['tenantAddons as active_assignments' => fn ($q) => $q->where('status', 'active')])->orderBy('name')->get();
+
         return view('livewire.add-ons', [
-            'addons' => Addon::query()->whereNull('archived_at')->withCount(['tenantAddons as active_assignments' => fn ($q) => $q->where('status', 'active')])->orderBy('name')->get(),
+            'addons' => $addons,
             'assignments' => TenantAddon::query()->with(['tenant', 'addon'])->latest()->limit(50)->get(),
             'activeAddons' => Addon::query()->where('is_active', true)->whereNull('archived_at')->orderBy('name')->get(),
             'tenants' => Tenant::query()->whereNull('archived_at')->orderBy('name')->get(),
             'revenueByAddon' => TenantAddon::query()->where('status', 'active')->selectRaw('addon_id, sum(price) as total, count(*) as count')->groupBy('addon_id')->get()->keyBy('addon_id'),
+            'stats' => [
+                'catalog' => $addons->count(),
+                'active_catalog' => $addons->where('is_active', true)->count(),
+                'active_assignments' => (int) TenantAddon::query()->where('status', 'active')->count(),
+                'pending_approvals' => (int) TenantAddon::query()->whereIn('status', ['requested', 'pending_approval'])->count(),
+                'revenue_monthly' => (float) TenantAddon::query()
+                    ->where('status', 'active')
+                    ->whereIn('billing_cycle', ['monthly', 'yearly'])
+                    ->get()
+                    ->sum(fn ($a) => $a->billing_cycle === 'yearly' ? (float) $a->price / 12 : (float) $a->price),
+            ],
         ]);
     }
 

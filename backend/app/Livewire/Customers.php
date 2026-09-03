@@ -39,6 +39,8 @@ class Customers extends Component
     public $package_id = '';
     public $billing_cycle = 'monthly';
     public $next_billing_date = '';
+    public $pppoe_username = '';
+    public $pppoe_password = '';
 
     protected function rules(): array
     {
@@ -53,13 +55,15 @@ class Customers extends Component
             'package_id' => ['nullable', Rule::exists('packages', 'id')->where(fn ($query) => $query->where('tenant_id', $tenantId)->where('is_active', true))],
             'billing_cycle' => 'required_with:package_id|in:monthly,quarterly,semiannual,yearly',
             'next_billing_date' => 'required_with:package_id|nullable|date',
+            'pppoe_username' => 'nullable|string|max:190',
+            'pppoe_password' => 'nullable|string|max:255',
         ];
     }
 
     public function create()
     {
         $this->resetValidation();
-        $this->reset(['name', 'email', 'phone', 'status', 'package_name', 'package_id', 'billing_cycle', 'next_billing_date', 'customerId']);
+        $this->reset(['name', 'email', 'phone', 'status', 'package_name', 'package_id', 'billing_cycle', 'next_billing_date', 'pppoe_username', 'pppoe_password', 'customerId']);
         $this->billing_cycle = 'monthly';
         $this->next_billing_date = today()->toDateString();
         $this->isEditing = false;
@@ -94,7 +98,9 @@ class Customers extends Component
         $this->package_id = $customer->activeSubscription?->package_id ?? '';
         $this->billing_cycle = $customer->activeSubscription?->billing_cycle ?? 'monthly';
         $this->next_billing_date = $customer->activeSubscription?->next_billing_date?->toDateString() ?? today()->toDateString();
-        
+        $this->pppoe_username = $customer->activeSubscription?->pppoe_username ?? '';
+        $this->pppoe_password = '';
+
         $this->isEditing = true;
         $this->viewMode = 'create';
     }
@@ -141,7 +147,14 @@ class Customers extends Component
                 'status' => $this->status === 'active' ? 'active' : 'paused',
                 'next_billing_date' => $this->next_billing_date,
                 'ended_at' => null,
-            ])->save();
+            ]);
+            if ($this->pppoe_username !== '') {
+                $subscription->pppoe_username = $this->pppoe_username;
+            }
+            if ($this->pppoe_password !== '') {
+                $subscription->pppoe_password = $this->pppoe_password;
+            }
+            $subscription->save();
         });
 
         $this->viewMode = 'index';
@@ -157,6 +170,8 @@ class Customers extends Component
     public function render()
     {
         $tenantId = app(CurrentTenant::class)->id();
+        $tenant = app(CurrentTenant::class)->resolve();
+        $automatic = $tenant?->isAutomatic() ?? true;
 
         $customers = Customer::query()
             ->where('tenant_id', $tenantId)
@@ -179,6 +194,7 @@ class Customers extends Component
         return view('livewire.customers', [
             'customers' => $customers,
             'packages' => $packages,
+            'isAutomatic' => $automatic,
             'packageOptions' => collect(['' => 'No recurring package'])->union(
                 $packages->mapWithKeys(fn ($package) => [$package->id => $package->name.($package->bandwidth ? ' ('.$package->bandwidth.')' : '').' — ৳'.number_format($package->price, 2)])
             )->map(fn ($label, $value) => ['value' => (string) $value, 'label' => (string) $label])->values()->all(),

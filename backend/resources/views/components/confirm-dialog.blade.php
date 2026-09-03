@@ -1,17 +1,17 @@
 <div
     x-data="{
         open: false,
-        title: 'Are you sure?',
+        title: @js(__('Are you sure?')),
         message: '',
-        confirmText: 'Confirm',
+        confirmText: @js(__('Confirm')),
         wireMethod: null,
         wireParams: [],
     }"
     @confirm-action.window="
         open = true;
-        title = $event.detail.title ?? 'Are you sure?';
+        title = $event.detail.title ?? @js(__('Are you sure?'));
         message = $event.detail.message ?? '';
-        confirmText = $event.detail.confirmText ?? 'Confirm';
+        confirmText = $event.detail.confirmText ?? @js(__('Confirm'));
         wireMethod = $event.detail.wireMethod ?? null;
         wireParams = $event.detail.wireParams ?? [];
     "
@@ -40,7 +40,7 @@
 
         <div class="flex flex-col-reverse gap-2 border-t border-gray-100 bg-gray-50/60 px-5 py-4 sm:flex-row sm:justify-end dark:border-gray-800 dark:bg-white/[0.02]">
             <button type="button" @click="open = false" class="inline-flex min-h-10 items-center justify-center gap-2 rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-theme-sm font-medium text-gray-700 shadow-theme-xs transition hover:bg-gray-50 hover:text-gray-800 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-white/[0.03] dark:hover:text-gray-200">
-                Cancel
+                {{ __('Cancel') }}
             </button>
             <button
                 type="button"

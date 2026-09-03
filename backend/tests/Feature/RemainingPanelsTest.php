@@ -48,6 +48,95 @@ class RemainingPanelsTest extends TestCase {
         $this->assertSame('Bank A/C 1234', $config['methods']['bank']['details']);
     }
 
+    public function test_tenant_sees_recommended_bee_gateway_with_platform_fee(): void
+    {
+        $tenant = Tenant::create(['name' => 'BeeGw', 'slug' => 'beegw', 'status' => 'active', 'currency' => 'BDT', 'timezone' => 'UTC']);
+        $user = User::factory()->create(['tenant_id' => $tenant->id, 'role' => User::ROLE_TENANT_ADMIN]);
+        \App\Models\SystemSetting::set('bee_gateway_fee_percent', '2');
+
+        Livewire::actingAs($user)
+            ->test(\App\Livewire\IspGateway::class)
+            ->assertSee('Recommended')
+            ->assertSee('Platform fee 2%')
+            ->assertDontSee('Bee processing fee');
+    }
+
+    public function test_bee_gateway_fee_is_platform_managed_not_tenant_editable(): void
+    {
+        $tenant = Tenant::create(['name' => 'BeeFee', 'slug' => 'beefee', 'status' => 'active', 'currency' => 'BDT', 'timezone' => 'UTC']);
+        $user = User::factory()->create(['tenant_id' => $tenant->id, 'role' => User::ROLE_TENANT_ADMIN]);
+        \App\Models\SystemSetting::set('bee_gateway_fee_percent', '5');
+
+        Livewire::actingAs($user)
+            ->test(\App\Livewire\IspGateway::class)
+            ->assertSee('Platform fee 5%')
+            ->set('collectionMode', 'bee')
+            ->call('save')
+            ->assertHasNoErrors();
+
+        $config = $tenant->fresh()->settings['collection'];
+        $this->assertSame('bee', $config['mode']);
+        $this->assertArrayNotHasKey('bee_fee_percent', $config);
+    }
+
+    public function test_tenant_buys_addon_and_payment_verification_activates_it(): void
+    {
+        $tenant = Tenant::create(['name' => 'AddonCo', 'slug' => 'addonco', 'status' => 'active', 'currency' => 'BDT', 'timezone' => 'UTC']);
+        $user = User::factory()->create(['tenant_id' => $tenant->id, 'role' => User::ROLE_TENANT_ADMIN]);
+        $super = User::factory()->create(['role' => User::ROLE_SUPER_ADMIN]);
+
+        $plan = SaasPlan::create([
+            'name' => 'Professional', 'slug' => 'professional-'.uniqid(), 'monthly_price' => 2500,
+            'yearly_price' => 25000, 'trial_days' => 0, 'grace_days' => 7, 'is_active' => true,
+        ]);
+        TenantSubscription::create([
+            'tenant_id' => $tenant->id,
+            'saas_plan_id' => $plan->id,
+            'status' => 'active',
+            'billing_cycle' => 'monthly',
+            'price' => 2500,
+            'starts_at' => today()->subMonth(),
+            'current_period_ends_at' => today()->addMonth(),
+            'grace_ends_at' => today()->addDays(30),
+            'auto_renew' => true,
+        ]);
+
+        $addon = \App\Models\Addon::create([
+            'name' => 'SMS Pack', 'slug' => 'sms-pack', 'category' => 'sms',
+            'description' => 'Extra SMS credits', 'price' => 500, 'billing_cycle' => 'monthly', 'is_active' => true,
+        ]);
+
+        Livewire::actingAs($user)
+            ->test(\App\Livewire\IspAddons::class)
+            ->assertSee('Add-on marketplace')
+            ->assertSee('Buy now')
+            ->call('buy', $addon->id)
+            ->assertSet('checkoutAddonId', $addon->id)
+            ->set('checkoutGateway', 'manual_transfer')
+            ->call('confirmBuy')
+            ->assertHasNoErrors();
+
+        $row = \App\Models\TenantAddon::where('tenant_id', $tenant->id)->where('addon_id', $addon->id)->firstOrFail();
+        $this->assertSame('pending_approval', $row->status);
+        $this->assertTrue((bool) $row->auto_renew);
+        $this->assertNotNull($row->period_end);
+
+        $invoice = \App\Models\SaasInvoice::where('tenant_addon_id', $row->id)->firstOrFail();
+        $this->assertSame('pending', $invoice->status);
+        $this->assertNotNull($invoice->tenant_subscription_id);
+
+        $payment = \App\Models\SaasPayment::where('saas_invoice_id', $invoice->id)->where('status', 'pending')->firstOrFail();
+
+        // BeeCore team verifies the transfer -> add-on activates and invoice is paid.
+        Livewire::actingAs($super)
+            ->test(\App\Livewire\SaasBilling::class)
+            ->call('verifyPayment', $payment->id)
+            ->assertHasNoErrors();
+
+        $this->assertSame('active', $row->fresh()->status);
+        $this->assertSame('paid', $invoice->fresh()->status);
+    }
+
     public function test_tenant_admin_can_save_workspace_billing_settings(): void
     {
         $tenant = Tenant::create(['name' => 'SettingsCo', 'slug' => 'settingsco', 'status' => 'active', 'currency' => 'BDT', 'timezone' => 'UTC', 'contact_address' => 'Dhaka']);
@@ -247,7 +336,7 @@ class RemainingPanelsTest extends TestCase {
         $this->assertSame($planA->id, $subscription->fresh()->saas_plan_id);
     }
 
-    public function test_online_checkout_activates_plan_and_settles_invoice(): void
+    public function test_online_bkash_checkout_creates_pending_order_and_bee_pay_intent(): void
     {
         $tenant = Tenant::create(['name' => 'Online ISP', 'slug' => 'online-isp', 'status' => 'active', 'currency' => 'BDT', 'timezone' => 'UTC', 'operation_mode' => 'manual']);
         $user = User::factory()->create(['tenant_id' => $tenant->id, 'role' => User::ROLE_TENANT_ADMIN]);
@@ -257,7 +346,7 @@ class RemainingPanelsTest extends TestCase {
             'customer_limit' => 300, 'overflow_rate' => 3, 'is_active' => true, 'operation_mode' => 'manual',
         ]);
         $gateway = \App\Models\PaymentGateway::create([
-            'name' => 'bKash', 'slug' => 'online-bkash', 'provider' => 'bkash', 'mode' => 'sandbox', 'is_active' => true,
+            'name' => 'bKash', 'slug' => 'online-bkash', 'provider' => 'bkash', 'mode' => 'live', 'is_active' => true,
         ]);
 
         Livewire::actingAs($user)
@@ -267,12 +356,21 @@ class RemainingPanelsTest extends TestCase {
             ->set('billingCycle', 'monthly')
             ->call('selectGateway', 'gateway:'.$gateway->id)
             ->call('confirmCheckout')
-            ->assertHasNoErrors();
+            ->assertHasNoErrors()
+            ->assertRedirect();
 
         $subscription = TenantSubscription::where('tenant_id', $tenant->id)->firstOrFail();
-        $this->assertSame('active', $subscription->status);
-        $this->assertDatabaseHas('saas_invoices', ['tenant_subscription_id' => $subscription->id, 'status' => 'paid', 'amount' => 1000]);
-        $this->assertDatabaseHas('saas_payments', ['tenant_id' => $tenant->id, 'status' => 'completed', 'method' => 'bkash', 'amount' => 1000]);
+        $this->assertSame('pending_approval', $subscription->status);
+
+        // Nothing is settled until bKash confirms — the invoice and payment stay pending.
+        $this->assertDatabaseHas('saas_invoices', ['tenant_subscription_id' => $subscription->id, 'status' => 'pending', 'amount' => 1000]);
+        $this->assertDatabaseHas('saas_payments', ['tenant_id' => $tenant->id, 'status' => 'pending', 'method' => 'bkash', 'amount' => 1000]);
+
+        // A hosted BeeCore payment intent was created for the real bKash session.
+        $intent = \App\Models\BeePaymentIntent::where('tenant_id', $tenant->id)->firstOrFail();
+        $this->assertSame('saas_plan', $intent->kind);
+        $this->assertSame('created', $intent->status);
+        $this->assertSame(1000.0, (float) $intent->amount);
     }
 
     public function test_manual_checkout_waits_for_beecore_approval(): void
@@ -303,7 +401,7 @@ class RemainingPanelsTest extends TestCase {
         $payment = \App\Models\SaasPayment::where('tenant_id', $tenant->id)->firstOrFail();
 
         Livewire::actingAs($admin)
-            ->test(\App\Livewire\SaasPayments::class)
+            ->test(\App\Livewire\SaasBilling::class)
             ->call('verifyPayment', $payment->id)
             ->assertHasNoErrors();
 

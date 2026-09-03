@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\AuditLog;
 use App\Models\SaasInvoice;
 use App\Models\SaasInvoiceItem;
+use App\Models\TenantAddon;
 use App\Models\TenantSubscription;
 use App\Models\TenantSubscriptionEvent;
 use Carbon\CarbonInterface;
@@ -13,7 +14,7 @@ use Illuminate\Support\Facades\DB;
 class SaasSubscriptionBilling
 {
     /**
-     * @return array{trials_converted:int, renewed:int, expired:int, invoices_overdue:int, suspended:int}
+     * @return array{trials_converted:int, renewed:int, expired:int, invoices_overdue:int, suspended:int, addons_renewed:int}
      */
     public function processDue(?CarbonInterface $through = null): array
     {
@@ -25,6 +26,7 @@ class SaasSubscriptionBilling
             'expired' => 0,
             'invoices_overdue' => 0,
             'suspended' => 0,
+            'addons_renewed' => 0,
         ];
 
         TenantSubscription::query()
@@ -65,6 +67,8 @@ class SaasSubscriptionBilling
                     $summary['expired']++;
                 }
             });
+
+        $summary['addons_renewed'] += $this->renewRecurringAddons($through);
 
         return $summary;
     }
@@ -130,9 +134,70 @@ class SaasSubscriptionBilling
         });
     }
 
+    /**
+     * Renew active recurring add-ons whose period has passed, invoicing the next period.
+     */
+    public function renewRecurringAddons(CarbonInterface $through): int
+    {
+        $renewed = 0;
+
+        TenantAddon::query()
+            ->with('addon')
+            ->where('status', 'active')
+            ->whereIn('billing_cycle', ['monthly', 'yearly'])
+            ->where('auto_renew', true)
+            ->whereNotNull('period_end')
+            ->whereDate('period_end', '<', $through)
+            ->get()
+            ->each(function (TenantAddon $addon) use (&$renewed) {
+                $base = TenantSubscription::query()
+                    ->where('tenant_id', $addon->tenant_id)
+                    ->where('status', 'active')
+                    ->latest('id')
+                    ->first();
+
+                if (! $base) {
+                    return;
+                }
+
+                $periodStart = $addon->period_end->copy()->addDay();
+                $periodEnd = $addon->billing_cycle === 'yearly'
+                    ? $periodStart->copy()->addYear()->subDay()
+                    : $periodStart->copy()->addMonth()->subDay();
+
+                $invoice = SaasInvoice::create([
+                    'tenant_id' => $addon->tenant_id,
+                    'tenant_subscription_id' => $base->id,
+                    'tenant_addon_id' => $addon->id,
+                    'invoice_number' => SaasInvoice::draftNumber(),
+                    'status' => 'pending',
+                    'period_start' => $periodStart->toDateString(),
+                    'period_end' => $periodEnd->toDateString(),
+                    'amount' => $addon->price,
+                    'due_date' => $periodStart->toDateString(),
+                ]);
+                $invoice->setSequentialNumber();
+
+                SaasInvoiceItem::create([
+                    'saas_invoice_id' => $invoice->id,
+                    'type' => 'charge',
+                    'description' => ($addon->addon?->name ?? 'Add-on').' ('.$addon->billing_cycle.') renewal',
+                    'amount' => $addon->price,
+                    'created_at' => now(),
+                ]);
+
+                $addon->update(['period_start' => $periodStart, 'period_end' => $periodEnd]);
+
+                AuditLog::record('addon.renewed', $addon, ['amount' => $addon->price, 'period_start' => $periodStart->toDateString()], tenantId: $addon->tenant_id);
+                $renewed++;
+            });
+
+        return $renewed;
+    }
+
     private function suspendForNonPayment(int $subscriptionId): bool
     {
-        return DB::transaction(function () use ($subscriptionId) {
+         return DB::transaction(function () use ($subscriptionId) {
             $subscription = TenantSubscription::query()->with('tenant')->lockForUpdate()->find($subscriptionId);
 
             if (!$subscription || !in_array($subscription->status, ['active', 'past_due'], true)) {
@@ -178,10 +243,11 @@ class SaasSubscriptionBilling
     {
         $invoice = SaasInvoice::firstOrCreate([
             'tenant_subscription_id' => $subscription->id,
+            'tenant_addon_id' => null,
             'period_start' => $periodStart->toDateString(),
         ], [
             'tenant_id' => $subscription->tenant_id,
-            'invoice_number' => sprintf('SAAS-%s-T%04d-S%06d', $periodStart->format('Ymd'), $subscription->tenant_id, $subscription->id),
+            'invoice_number' => SaasInvoice::draftNumber(),
             'status' => 'pending',
             'period_end' => $periodEnd->toDateString(),
             'amount' => $subscription->price,
@@ -189,6 +255,8 @@ class SaasSubscriptionBilling
         ]);
 
         if ($invoice->wasRecentlyCreated) {
+            $invoice->setSequentialNumber();
+
             SaasInvoiceItem::create([
                 'saas_invoice_id' => $invoice->id,
                 'type' => 'charge',

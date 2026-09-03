@@ -3,6 +3,7 @@
 namespace App\Livewire;
 
 use App\Models\AuditLog;
+use App\Models\BeePaymentIntent;
 use App\Models\PaymentGateway;
 use App\Models\SaasInvoice;
 use App\Models\SaasPayment;
@@ -30,6 +31,8 @@ class IspSubscription extends Component
 
     public bool $checkoutActive = false;
     public string $checkoutGateway = '';
+
+    public ?string $beePayUrl = null;
 
     public function boot(): void
     {
@@ -63,7 +66,7 @@ class IspSubscription extends Component
         $this->resetValidation();
     }
 
-    public function confirmCheckout(): void
+    public function confirmCheckout()
     {
         $this->validate([
             'selectedPlanId' => ['required', 'integer'],
@@ -85,13 +88,26 @@ class IspSubscription extends Component
 
         $message = $this->placeOrder($tenant, $plan, $this->billingCycle, $manual, $method);
 
-        if (!$message) {
+        if ($message === '' && ! $this->beePayUrl) {
             return; // A validation error was registered — stay on the checkout page.
         }
 
         $this->checkoutActive = false;
         $this->selectedPlanId = null;
         $this->checkoutGateway = '';
+
+        // bKash orders move to the hosted BeeCore payment page where the real
+        // bKash Tokenized Checkout session is created. Nothing is activated
+        // until bKash confirms the payment.
+        if ($this->beePayUrl) {
+            $url = $this->beePayUrl;
+            $this->beePayUrl = null;
+
+            $this->dispatch('bee-pay-open', $url);
+
+            return redirect()->to($url);
+        }
+
         session()->flash('message', $message);
     }
 
@@ -244,6 +260,7 @@ class IspSubscription extends Component
         $gateways = PaymentGateway::query()
             ->where('is_active', true)
             ->whereNull('archived_at')
+            ->whereIn('provider', ['bkash', 'bank'])
             ->orderBy('provider')
             ->get();
 
@@ -291,7 +308,14 @@ class IspSubscription extends Component
     {
         $price = $cycle === 'yearly' ? (float) $plan->yearly_price : (float) $plan->monthly_price;
 
-        DB::transaction(function () use ($tenant, $plan, $cycle, $manual, $method, $price) {
+        // bKash is the only real-time gateway on the SaaS checkout: the order is
+        // created as pending and is completed by the BeeCore payment callback.
+        $onlineBkash = ! $manual && ($method['provider'] ?? null) === 'bkash';
+        $needsApproval = $manual || $onlineBkash;
+
+        $intent = null;
+
+        DB::transaction(function () use ($tenant, $plan, $cycle, $manual, $onlineBkash, $needsApproval, $method, $price, &$intent) {
             $subscription = $this->currentSubscription($tenant, lock: true);
 
             if (!$subscription || $subscription->status === 'cancelled') {
@@ -304,7 +328,7 @@ class IspSubscription extends Component
                 $subscription = TenantSubscription::create([
                     'tenant_id' => $tenant->id,
                     'saas_plan_id' => $plan->id,
-                    'status' => $manual ? 'pending_approval' : 'active',
+                    'status' => $needsApproval ? 'pending_approval' : 'active',
                     'billing_cycle' => $cycle,
                     'price' => $price,
                     'starts_at' => $starts,
@@ -322,7 +346,7 @@ class IspSubscription extends Component
                     'event' => 'subscription.created',
                     'from_status' => null,
                     'to_status' => $subscription->status,
-                    'metadata' => ['plan_id' => $plan->id, 'billing_cycle' => $cycle, 'price' => $price, 'payment' => $manual ? 'manual' : 'online'],
+                    'metadata' => ['plan_id' => $plan->id, 'billing_cycle' => $cycle, 'price' => $price, 'payment' => $needsApproval ? 'pending' : 'online'],
                     'created_at' => now(),
                 ]);
                 AuditLog::record('tenant.subscription.created', $subscription, tenantId: $tenant->id);
@@ -353,7 +377,7 @@ class IspSubscription extends Component
                     'saas_plan_id' => $plan->id,
                     'billing_cycle' => $cycle,
                     'price' => $price,
-                    'status' => $manual ? 'pending_approval' : 'active',
+                    'status' => $needsApproval ? 'pending_approval' : 'active',
                     'auto_renew' => true,
                 ]);
 
@@ -384,37 +408,39 @@ class IspSubscription extends Component
                 'amount' => $price,
                 'method' => $method['provider'] ?? 'manual',
                 'reference' => 'BeeCore checkout — '.($method['name'] ?? 'BeeCore'),
-                'status' => $manual ? 'pending' : 'completed',
-                'verified_at' => $manual ? null : now(),
-                'verified_by' => $manual ? null : auth()->id(),
+                'status' => $needsApproval ? 'pending' : 'completed',
+                'verified_at' => $needsApproval ? null : now(),
+                'verified_by' => $needsApproval ? null : auth()->id(),
                 'paid_at' => now(),
             ]);
 
-            if (!$manual) {
-                $this->settleCheckoutPayment($invoice, $subscription);
-            }
-
-            AuditLog::record($manual ? 'saas.payment.pending' : 'saas.payment.recorded', $payment, [
+            AuditLog::record($needsApproval ? 'saas.payment.pending' : 'saas.payment.recorded', $payment, [
                 'amount' => $price,
                 'method' => $method['provider'] ?? 'manual',
                 'status' => $payment->status,
             ], tenantId: $tenant->id);
+
+            if ($onlineBkash) {
+                $intent = BeePaymentIntent::findOpen(BeePaymentIntent::KIND_SAAS_PLAN, $tenant->id, ['saas_invoice_id' => $invoice->id])
+                    ?? BeePaymentIntent::createFor(BeePaymentIntent::KIND_SAAS_PLAN, $tenant->id, $price, ['saas_invoice_id' => $invoice->id]);
+            }
         });
 
         if ($this->getErrorBag()->isNotEmpty()) {
             return '';
         }
 
-        if ($manual) {
+        if ($onlineBkash && $intent) {
+            $this->beePayUrl = route('bee-pay.intent', ['intent' => $intent->token]);
+
+            return '';
+        }
+
+        if ($needsApproval) {
             return 'Order submitted. The BeeCore Account team will verify your payment and activate your '.$plan->name.' plan — no action is needed from you.';
         }
 
         return 'Payment successful — your '.$plan->name.' plan is now active.';
-    }
-
-    private function settleCheckoutPayment(SaasInvoice $invoice, TenantSubscription $subscription): void
-    {
-        $invoice->update(['status' => 'paid', 'paid_at' => now()]);
     }
 
     private function currentSubscription(Tenant $tenant, bool $lock = false): ?TenantSubscription

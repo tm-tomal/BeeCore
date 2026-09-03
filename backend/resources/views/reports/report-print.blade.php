@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Business report — {{ $workspace->name }} ({{ $period['from'] }} → {{ $period['to'] }})</title>
+    <title>{{ __('Business report') }} — {{ $workspace->name }} ({{ $period['from'] }} → {{ $period['to'] }})</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
@@ -82,10 +82,10 @@
 </head>
 <body>
     <div class="toolbar">
-        <span class="left">BeeCore · Printable report</span>
+        <span class="left">BeeCore · {{ __('Printable report') }}</span>
         <div class="actions">
-            <a href="javascript:window.close();" class="back-btn">Close</a>
-            <button type="button" class="print-btn" onclick="window.print()">Print / Save as PDF</button>
+            <a href="javascript:window.close();" class="back-btn">{{ __('Close') }}</a>
+            <button type="button" class="print-btn" onclick="window.print()">{{ __('Print / Save as PDF') }}</button>
         </div>
     </div>
 
@@ -93,51 +93,51 @@
         <header class="report-head">
             <div class="brand">
                 <div class="name">BeeCore — {{ $workspace->name }}</div>
-                <div class="sub">ISP business report · Collections, invoicing, subscribers and operations snapshot.</div>
+                <div class="sub">{{ __('ISP business report · Collections, invoicing, subscribers and operations snapshot.') }}</div>
             </div>
             <div class="doc">
-                <div class="label">Business report</div>
+                <div class="label">{{ __('Business report') }}</div>
                 <div class="title">{{ $period['from'] }} – {{ $period['to'] }}</div>
-                <div class="meta">Generated {{ now()->format('d M Y, H:i') }}</div>
+                <div class="meta">{{ __('Generated') }} {{ now()->format('d M Y, H:i') }}</div>
             </div>
         </header>
 
         <section class="section">
-            <h2>Summary</h2>
+            <h2>{{ __('Summary') }}</h2>
             <div class="kpi-grid">
                 <div class="kpi">
-                    <div class="k-label">Collections</div>
+                    <div class="k-label">{{ __('Collections') }}</div>
                     <div class="k-value">৳{{ number_format($metrics['collections'], 2) }}</div>
-                    <div class="k-sub">{{ number_format($metrics['transactions']) }} transactions</div>
+                    <div class="k-sub">{{ __(':count transactions', ['count' => number_format($metrics['transactions'])]) }}</div>
                 </div>
                 <div class="kpi">
-                    <div class="k-label">Invoiced</div>
+                    <div class="k-label">{{ __('Invoiced') }}</div>
                     <div class="k-value">৳{{ number_format($metrics['invoiced'], 2) }}</div>
-                    <div class="k-sub">{{ $metrics['collection_rate'] }}% collected</div>
+                    <div class="k-sub">{{ __(':pct% collected', ['pct' => $metrics['collection_rate']]) }}</div>
                 </div>
                 <div class="kpi">
-                    <div class="k-label">Customers</div>
+                    <div class="k-label">{{ __('Customers') }}</div>
                     <div class="k-value">{{ number_format($metrics['customers']) }}</div>
-                    <div class="k-sub">{{ number_format($metrics['active_customers']) }} active</div>
+                    <div class="k-sub">{{ __(':count active', ['count' => number_format($metrics['active_customers'])]) }}</div>
                 </div>
                 <div class="kpi">
-                    <div class="k-label">Avg payment</div>
+                    <div class="k-label">{{ __('Avg payment') }}</div>
                     <div class="k-value">৳{{ number_format($metrics['avg_payment'], 2) }}</div>
-                    <div class="k-sub">{{ $metrics['online_devices'] }} devices online</div>
+                    <div class="k-sub">{{ __(':count devices online', ['count' => $metrics['online_devices']]) }}</div>
                 </div>
             </div>
         </section>
 
         @if($paymentMethods->isNotEmpty())
             <section class="section">
-                <h2>Collections by method</h2>
+                <h2>{{ __('Collections by method') }}</h2>
                 <table>
                     <thead>
                         <tr>
-                            <th>Method</th>
-                            <th class="num">Transactions</th>
-                            <th class="num">Amount</th>
-                            <th class="num">Share</th>
+                            <th>{{ __('Method') }}</th>
+                            <th class="num">{{ __('Transactions') }}</th>
+                            <th class="num">{{ __('Amount') }}</th>
+                            <th class="num">{{ __('Share') }}</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -150,7 +150,7 @@
                             </tr>
                         @endforeach
                         <tr>
-                            <td class="muted">Total</td>
+                            <td class="muted">{{ __('Total') }}</td>
                             <td class="num muted">{{ number_format($metrics['transactions']) }}</td>
                             <td class="num">৳{{ number_format($metrics['collections'], 2) }}</td>
                             <td class="num muted">100%</td>
@@ -162,13 +162,13 @@
 
         @if(count($invoiceStatuses) > 0)
             <section class="section">
-                <h2>Invoice status</h2>
+                <h2>{{ __('Invoice status') }}</h2>
                 <table>
                     <thead>
                         <tr>
-                            <th>Status</th>
-                            <th class="num">Invoices</th>
-                            <th class="num">Value</th>
+                            <th>{{ __('Status') }}</th>
+                            <th class="num">{{ __('Invoices') }}</th>
+                            <th class="num">{{ __('Value') }}</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -186,7 +186,7 @@
 
         <div class="note">
             <div class="line"></div>
-            Generated by BeeCore for {{ $workspace->name }}. Figures cover {{ $period['from'] }} to {{ $period['to'] }}.
+            {{ __('Generated by BeeCore for :workspace. Figures cover :from to :to.', ['workspace' => $workspace->name, 'from' => $period['from'], 'to' => $period['to']]) }}
         </div>
     </main>
 </body>

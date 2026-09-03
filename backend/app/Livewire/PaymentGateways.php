@@ -5,6 +5,7 @@ namespace App\Livewire;
 use App\Models\AuditLog;
 use App\Models\PaymentGateway;
 use App\Models\PaymentGatewayLog;
+use App\Services\BkashGateway;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Livewire\Attributes\Layout;
@@ -206,11 +207,39 @@ class PaymentGateways extends Component
         $this->assertSuperAdmin();
         $gateway = PaymentGateway::findOrFail($id);
 
+        $metadata = ['triggered_by' => auth()->user()?->name, 'mode' => $gateway->mode, 'provider' => $gateway->provider];
+
+        // bKash is the only live-integrated gateway: test with a real token request.
+        if ($gateway->provider === 'bkash') {
+            try {
+                $result = BkashGateway::testConnection($gateway);
+                $metadata['result'] = 'Connected to bKash '.($result['mode'] ?? 'live');
+                $status = 'success';
+                session()->flash('message', 'Connected to bKash '.($result['mode'] ?? 'live').' — token granted. Ready to collect payments.');
+            } catch (\Throwable $e) {
+                $metadata['error'] = $e->getMessage();
+                $status = 'failed';
+                session()->flash('message', 'bKash connection failed: '.$e->getMessage());
+            }
+
+            $log = PaymentGatewayLog::create([
+                'payment_gateway_id' => $gateway->id,
+                'event' => 'connection_test',
+                'status' => $status,
+                'metadata' => $metadata,
+                'created_at' => now(),
+            ]);
+
+            AuditLog::record('payment_gateway.connection_tested', $gateway, ['result' => $log->status]);
+
+            return;
+        }
+
         $log = PaymentGatewayLog::create([
             'payment_gateway_id' => $gateway->id,
             'event' => 'connection_test',
             'status' => $gateway->is_active ? 'success' : 'failed',
-            'metadata' => ['triggered_by' => auth()->user()?->name, 'mode' => $gateway->mode, 'provider' => $gateway->provider],
+            'metadata' => $metadata,
             'created_at' => now(),
         ]);
 

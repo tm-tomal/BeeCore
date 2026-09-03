@@ -185,7 +185,6 @@ Route::middleware('auth')->group(function () {
         Route::get('/saas-plans', App\Livewire\SaasPlans::class)->name('saas-plans');
         Route::get('/subscriptions', App\Livewire\Subscriptions::class)->name('subscriptions');
         Route::get('/saas-billing', App\Livewire\SaasBilling::class)->name('saas-billing');
-        Route::get('/saas-payments', App\Livewire\SaasPayments::class)->name('saas-payments');
         Route::get('/payment-gateways', App\Livewire\PaymentGateways::class)->name('payment-gateways');
         Route::get('/add-ons', App\Livewire\AddOns::class)->name('add-ons');
         Route::get('/feature-modules', App\Livewire\FeatureModules::class)->name('feature-modules');
@@ -239,6 +238,7 @@ Route::middleware('auth')->group(function () {
         })->middleware('role:super_admin,tenant_admin,finance')->name('billing.invoice-print');
         Route::get('/payments', App\Livewire\Payments::class)->middleware('role:super_admin,tenant_admin,finance')->name('payments');
         Route::get('/network', App\Livewire\Network::class)->middleware('role:super_admin,tenant_admin,network_engineer')->name('network');
+        Route::get('/cable-map', App\Livewire\CableMap::class)->middleware('role:super_admin,tenant_admin,network_engineer')->name('cable-map');
         Route::get('/resellers', App\Livewire\Resellers::class)->middleware('role:super_admin,tenant_admin')->name('resellers');
         Route::get('/reports', App\Livewire\Reports::class)->middleware('role:super_admin,tenant_admin,finance,support,network_engineer')->name('reports');
         Route::get('/reports/print', function () {
@@ -260,8 +260,63 @@ Route::middleware('auth')->group(function () {
         Route::get('/settings', App\Livewire\IspSettings::class)->middleware('role:super_admin,tenant_admin')->name('isp-settings');
         Route::get('/gateway', App\Livewire\IspGateway::class)->middleware('role:super_admin,tenant_admin')->name('isp-gateway');
         Route::get('/subscription', App\Livewire\IspSubscription::class)->middleware('role:super_admin,tenant_admin')->name('isp-subscription');
+        Route::get('/add-on-market', App\Livewire\IspAddons::class)->middleware('role:super_admin,tenant_admin')->name('isp-addons');
+        Route::get('/support', App\Livewire\IspSupport::class)->middleware('role:super_admin,tenant_admin,support')->name('support');
+        Route::get('/issues', App\Livewire\IspIssues::class)->middleware('role:super_admin,tenant_admin,support,network_engineer')->name('issues');
     });
 });
+
+// Public problem-report pages for ISP customers (no login needed).
+Route::get('/r/{tenant:slug}/report', function (Tenant $tenant) {
+    abort_unless($tenant->status === 'active' && ! $tenant->archived_at, 404);
+
+    return view('issues.public-report', ['tenant' => $tenant]);
+})->name('issues.public.report');
+
+Route::post('/r/{tenant:slug}/report', function (Request $request, Tenant $tenant) {
+    abort_unless($tenant->status === 'active' && ! $tenant->archived_at, 404);
+
+    $data = $request->validate([
+        'name' => ['required', 'string', 'max:255'],
+        'phone' => ['required', 'string', 'max:30'],
+        'category' => ['required', Rule::in(['connection', 'network', 'service', 'billing', 'other'])],
+        'subject' => ['required', 'string', 'max:255'],
+        'description' => ['nullable', 'string', 'max:2000'],
+    ]);
+
+    // Link the report to an existing subscriber when the phone matches exactly.
+    $cleanPhone = preg_replace('/\D+/', '', $data['phone']);
+    $customer = $cleanPhone
+        ? \App\Models\Customer::query()
+            ->where('tenant_id', $tenant->id)
+            ->get()
+            ->first(fn ($c) => preg_replace('/\D+/', '', (string) $c->phone) === $cleanPhone)
+        : null;
+
+    \App\Models\Issue::create([
+        'tenant_id' => $tenant->id,
+        'customer_id' => $customer?->id,
+        'reporter_name' => $data['name'],
+        'reporter_phone' => $data['phone'],
+        'subject' => $data['subject'],
+        'category' => $data['category'],
+        'priority' => 'medium',
+        'status' => \App\Models\Issue::STATUS_NEW,
+        'source' => 'public',
+        'description' => $data['description'] ?: null,
+    ]);
+
+    return back()->with('status', __('Thank you! Your report was sent to :name.', ['name' => $tenant->name]));
+})->middleware('throttle:10,1')->name('issues.public.store');
+
+// BeeCore hosted payment gateway (public) — used by ISP customers and BeeCore SaaS checkouts.
+Route::get('/pay/invoice/{invoice}', [App\Http\Controllers\BeePayController::class, 'invoice'])->name('bee-pay.invoice');
+Route::get('/pay/saas-invoice/{saasInvoice}', [App\Http\Controllers\BeePayController::class, 'saasInvoice'])->name('bee-pay.saas-invoice');
+Route::get('/bee-pay/{intent:token}', [App\Http\Controllers\BeePayController::class, 'show'])->name('bee-pay.intent');
+Route::post('/bee-pay/{intent:token}/bkash', [App\Http\Controllers\BeePayController::class, 'initiate'])->name('bee-pay.bkash');
+Route::post('/bee-pay/{intent:token}/check', [App\Http\Controllers\BeePayController::class, 'check'])->name('bee-pay.check');
+// bKash calls this callback URL (GET or POST) after the customer approves/cancels on their side.
+Route::match(['get', 'post'], '/bee-pay/bkash/callback', [App\Http\Controllers\BeePayController::class, 'callback'])->name('bee-pay.callback');
 
 Route::get('/', function () {
     return redirect()->route(Auth::check() ? 'dashboard' : 'login');

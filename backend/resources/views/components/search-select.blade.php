@@ -1,4 +1,4 @@
-@props(['wireKey' => null, 'options' => [], 'value' => '', 'placeholder' => 'Select an option', 'searchable' => true, 'live' => false])
+@props(['wireKey' => null, 'options' => [], 'value' => '', 'placeholder' => __('Select an option'), 'searchable' => true, 'live' => false])
 
 @php
     $rawOptions = collect($options);
@@ -63,7 +63,7 @@
                 <input
                     type="search"
                     x-model="search"
-                    placeholder="Search..."
+                    placeholder="{{ __('Search...') }}"
                     class="h-9 w-full rounded-lg border border-gray-200 bg-transparent py-2 pl-9 pr-3 text-theme-sm text-gray-800 placeholder:text-gray-400 focus:border-brand-300 focus:ring-3 focus:ring-brand-500/10 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30"
                 >
             </div>
@@ -83,7 +83,7 @@
                 </li>
             </template>
             <li x-show="filtered().length === 0">
-                <p class="px-3 py-6 text-center text-theme-sm text-gray-500 dark:text-gray-400">No matching options.</p>
+                <p class="px-3 py-6 text-center text-theme-sm text-gray-500 dark:text-gray-400">{{ __('No matching options.') }}</p>
             </li>
         </ul>
     </div>

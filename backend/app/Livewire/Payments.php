@@ -3,11 +3,13 @@ namespace App\Livewire;
 
 use App\Models\Payment;
 use App\Models\Invoice;
+use App\Models\AuditLog;
 use App\Models\Tenant;
 use App\Models\User;
 use App\Services\PaymentAllocator;
 use App\Support\AuthorizesRoles;
 use App\Support\CurrentTenant;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 use Livewire\Component;
 use Livewire\WithPagination;
@@ -66,6 +68,39 @@ class Payments extends Component {
         session()->flash('message', 'Payment recorded successfully.');
     }
 
+    public function deletePayment(int $id): void {
+        abort_unless(in_array(auth()->user()?->role, [User::ROLE_SUPER_ADMIN, User::ROLE_TENANT_ADMIN], true), 403);
+
+        $tenantId = app(CurrentTenant::class)->id();
+
+        DB::transaction(function () use ($id, $tenantId) {
+            $payment = Payment::query()->where('tenant_id', $tenantId)->lockForUpdate()->findOrFail($id);
+
+            AuditLog::record('payment.deleted', $payment, ['amount' => $payment->amount, 'method' => $payment->payment_method], tenantId: $tenantId);
+
+            $invoice = $payment->invoice_id
+                ? Invoice::query()->where('tenant_id', $tenantId)->lockForUpdate()->find($payment->invoice_id)
+                : null;
+
+            $payment->delete();
+
+            // Re-open / re-close the invoice so its status reflects the remaining payments.
+            if ($invoice) {
+                $remaining = (float) $invoice->payments()->where('status', 'successful')->sum('amount');
+                $total = (float) $invoice->total;
+
+                if ($remaining >= $total) {
+                    $invoice->update(['status' => 'paid']);
+                } elseif (in_array($invoice->status, ['paid', 'pending', 'overdue'], true)) {
+                    $newStatus = $invoice->due_date && $invoice->due_date->lt(now()->startOfDay()) ? 'overdue' : 'pending';
+                    $invoice->update(['status' => $newStatus]);
+                }
+            }
+        });
+
+        session()->flash('message', __('Payment deleted and its invoice was updated.'));
+    }
+
     public function render() {
         $tenantId = app(CurrentTenant::class)->id();
         $today = now()->startOfDay();
@@ -92,6 +127,8 @@ class Payments extends Component {
             'label' => $invoice->invoice_number.' — '.($invoice->customer?->name ?? 'Deleted customer').' (Due ৳'.number_format($invoice->outstanding_amount, 2).')',
         ]);
 
+        $canDelete = in_array(auth()->user()?->role, [User::ROLE_SUPER_ADMIN, User::ROLE_TENANT_ADMIN], true);
+
         return view('livewire.payments', [
             'tenant' => Tenant::query()->find($tenantId),
             'payments' => Payment::query()
@@ -111,6 +148,7 @@ class Payments extends Component {
             'invoiceOptions' => $invoices,
             'invoices' => $openInvoices,
             'summary' => $summary,
+            'canDelete' => $canDelete,
         ]);
     }
 }

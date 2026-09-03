@@ -18,7 +18,6 @@ return [
             ['label' => 'Plan & pricing', 'route' => 'saas-plans'],
             ['label' => 'Subscriptions', 'route' => 'subscriptions'],
             ['label' => 'SaaS billing', 'route' => 'saas-billing'],
-            ['label' => 'Payments', 'route' => 'saas-payments'],
             ['label' => 'Payment methods', 'route' => 'payment-gateways'],
             ['label' => 'Add-ons', 'route' => 'add-ons'],
         ],

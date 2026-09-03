@@ -1,5 +1,7 @@
 import Alpine from 'alpinejs';
 
+import { refreshCableMaps } from './cable-map.js';
+
 window.Alpine = Alpine;
 
 // Livewire boots its own Alpine instance on components, so we only start
@@ -109,6 +111,36 @@ function refreshCharts() {
 
 window.renderApex = renderApex;
 
+// Copy a BeeCore online payment link (bKash) with clipboard fallback for http.
+window.copyBeePayLink = async (url, trigger) => {
+    try {
+        await navigator.clipboard.writeText(url);
+    } catch (e) {
+        const textarea = document.createElement('textarea');
+        textarea.value = url;
+        textarea.style.position = 'fixed';
+        textarea.style.opacity = '0';
+        document.body.appendChild(textarea);
+        textarea.select();
+        try {
+            document.execCommand('copy');
+        } catch (_) {
+            // Clipboard unavailable (older browsers) — user can copy manually.
+        }
+        textarea.remove();
+    }
+
+    if (trigger) {
+        const previousTitle = trigger.getAttribute('title');
+        trigger.setAttribute('title', 'Payment link copied');
+        trigger.classList.add('text-pink-600', 'border-pink-400', 'dark:text-pink-400');
+        window.setTimeout(() => {
+            trigger.setAttribute('title', previousTitle || '');
+            trigger.classList.remove('text-pink-600', 'border-pink-400', 'dark:text-pink-400');
+        }, 1400);
+    }
+};
+
 window.addEventListener('beecore:theme', () => {
     const mode = themeMode();
     mountedCharts.forEach(({ chart }) => chart.updateOptions({ theme: { mode } }));
@@ -150,12 +182,33 @@ function registerLivewireHooks() {
         succeed(() => {
             refreshCharts();
             animateNumbers(document);
+            refreshCableMaps();
         });
     });
+}
+
+// Hard navigation fallback for hosted bKash checkout. Livewire components raise
+// "bee-pay-open" after the order is placed; we force a full page load so the
+// browser reliably lands on the BeeCore payment page (no SPA redirect issues).
+function registerBeePayRedirect() {
+    if (window.Livewire && typeof window.Livewire.on === 'function') {
+        window.Livewire.on('bee-pay-open', (url) => {
+            if (typeof url === 'string' && (url.startsWith('/') || /^https?:\/\//.test(url))) {
+                window.location.assign(url);
+            }
+        });
+    }
+}
+
+if (window.Livewire && typeof window.Livewire.on === 'function') {
+    registerBeePayRedirect();
+} else {
+    document.addEventListener('livewire:init', registerBeePayRedirect);
 }
 
 document.addEventListener('DOMContentLoaded', () => {
     renderApex(document).catch(() => {});
     animateNumbers(document);
     registerLivewireHooks();
+    refreshCableMaps();
 });

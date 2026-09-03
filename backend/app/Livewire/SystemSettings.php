@@ -24,6 +24,7 @@ class SystemSettings extends Component
     public string $timeFormat = 'H:i';
     public string $invoicePrefix = 'INV';
     public int $invoiceDueDays = 7;
+    public int $beeFeePercent = 2;
     public int $fileUploadMaxMb = 10;
     public string $allowedFileTypes = 'jpg,jpeg,png,pdf';
     public int $apiRateLimitPerMinute = 60;
@@ -46,6 +47,7 @@ class SystemSettings extends Component
         $this->timeFormat = SystemSetting::get('time_format', 'H:i');
         $this->invoicePrefix = SystemSetting::get('invoice_prefix', 'INV');
         $this->invoiceDueDays = (int) SystemSetting::get('invoice_due_days', 7);
+        $this->beeFeePercent = SystemSetting::beeFeePercent();
         $this->fileUploadMaxMb = (int) SystemSetting::get('file_upload_max_mb', 10);
         $this->allowedFileTypes = SystemSetting::get('allowed_file_types', 'jpg,jpeg,png,pdf');
         $this->apiRateLimitPerMinute = (int) SystemSetting::get('api_rate_limit_per_minute', 60);
@@ -67,6 +69,7 @@ class SystemSettings extends Component
             'timeFormat' => ['required', 'string', 'max:20'],
             'invoicePrefix' => ['required', 'string', 'max:10'],
             'invoiceDueDays' => ['required', 'integer', 'min:0', 'max:365'],
+            'beeFeePercent' => ['required', 'integer', 'min:0', 'max:50'],
             'fileUploadMaxMb' => ['required', 'integer', 'min:1', 'max:1024'],
             'allowedFileTypes' => ['required', 'string', 'max:255'],
             'apiRateLimitPerMinute' => ['required', 'integer', 'min:1', 'max:10000'],
@@ -86,6 +89,7 @@ class SystemSettings extends Component
             'time_format' => $data['timeFormat'],
             'invoice_prefix' => $data['invoicePrefix'],
             'invoice_due_days' => (string) $data['invoiceDueDays'],
+            'bee_gateway_fee_percent' => (string) $data['beeFeePercent'],
             'file_upload_max_mb' => (string) $data['fileUploadMaxMb'],
             'allowed_file_types' => $data['allowedFileTypes'],
             'api_rate_limit_per_minute' => (string) $data['apiRateLimitPerMinute'],
