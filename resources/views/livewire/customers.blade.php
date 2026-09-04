@@ -334,19 +334,46 @@
                     <input type="hidden" id="customer-latitude" wire:model="address_latitude">
                     <input type="hidden" id="customer-longitude" wire:model="address_longitude">
                     <div wire:ignore>
+                        <!-- Address search & autofill -->
+                        <div class="mb-3 grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto]">
+                            <div class="relative">
+                                <span class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3.5 text-gray-400 dark:text-gray-500">
+                                    <svg class="size-4 stroke-current" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                                </span>
+                                <input
+                                    type="search"
+                                    data-map-search
+                                    autocomplete="off"
+                                    placeholder="{{ __('Search a Bangladesh address — house, road, area or district...') }}"
+                                    class="h-11 w-full rounded-lg border border-gray-300 bg-transparent py-2.5 pl-10 pr-3 text-theme-sm text-gray-800 shadow-theme-xs placeholder:text-gray-400 focus:border-brand-300 focus:ring-3 focus:ring-brand-500/10 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30"
+                                >
+                                <div data-map-results class="bee-map-results absolute left-0 right-0 z-30 mt-1.5 hidden max-h-72 overflow-y-auto rounded-xl border border-gray-200 bg-white p-1.5 shadow-theme-lg dark:border-gray-800 dark:bg-gray-900"></div>
+                            </div>
+                            <button type="button" data-map-locate class="inline-flex h-11 shrink-0 items-center justify-center gap-2 rounded-lg border border-gray-200 px-3.5 text-theme-sm font-medium text-gray-600 transition hover:border-brand-300 hover:bg-brand-50 hover:text-brand-600 dark:border-gray-700 dark:text-gray-400 dark:hover:border-brand-500/40 dark:hover:bg-brand-500/10 dark:hover:text-brand-400">
+                                <svg class="size-4 stroke-current" viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76"/></svg>
+                                {{ __('My location') }}
+                            </button>
+                        </div>
+
                         <div
                             id="customer-address-map"
                             data-address-map
                             data-editable="1"
+                            data-default-zoom="13"
                             data-lat-input="#customer-latitude"
                             data-lng-input="#customer-longitude"
-                            class="h-64 w-full overflow-hidden rounded-xl border border-gray-200 dark:border-gray-800"
+                            data-house-input="#customer-house"
+                            data-street-input="#customer-street"
+                            data-area-input="#customer-area"
+                            data-city-input="#customer-city"
+                            data-postcode-input="#customer-postcode"
+                            class="h-72 w-full overflow-hidden rounded-xl border border-gray-200 dark:border-gray-800"
                             aria-label="{{ __('Customer location map') }}"
                         ></div>
                     </div>
                     <p class="mt-2 flex items-center gap-1.5 text-theme-xs text-gray-500 dark:text-gray-400">
                         <svg class="size-3.5 shrink-0 stroke-current text-brand-500 dark:text-brand-400" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>
-                        {{ __('Click on the map (or drag the pin) to set the exact service location.') }}
+                        {{ __('Search an address, tap your location, or click/drag the pin. District auto-detects — the saved point is reused later for reports and the cable map.') }}
                     </p>
                 </div>
             </section>

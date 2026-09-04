@@ -23,6 +23,45 @@ const beeTileLayer = (map) =>
         attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
     }).addTo(map);
 
+// Nominatim (OpenStreetMap) helpers — free geocoding, no key needed.
+// We restrict every lookup to Bangladesh so we never jump to a world view.
+const beeBdFallback = { lat: 23.7808, lng: 90.3934 };
+
+const beeJson = async (url) => {
+    try {
+        const response = await fetch(url, { headers: { Accept: 'application/json' } });
+        if (!response.ok) return [];
+        return await response.json();
+    } catch (error) {
+        return [];
+    }
+};
+
+const beeSearchAddress = (query) =>
+    beeJson(
+        `https://nominatim.openstreetmap.org/search?format=jsonv2&addressdetails=1&limit=6&countrycodes=bd&q=${encodeURIComponent(query)}`,
+    );
+
+const beeReverseAddress = (lat, lng) =>
+    beeJson(`https://nominatim.openstreetmap.org/reverse?format=jsonv2&addressdetails=1&zoom=18&lat=${lat}&lng=${lng}`);
+
+const beeDistrictOf = (address = {}) =>
+    address.state_district || address.county || address.city || address.town || address.village || address.state || '';
+
+const beeAreaOf = (address = {}) => address.suburb || address.neighbourhood || address.quarter || address.city_district || '';
+
+const beeSetField = (selector, value) => {
+    if (!selector) return;
+    const element = document.querySelector(selector);
+    if (!element) return;
+    const clean = String(value ?? '').trim();
+    if (clean !== '') {
+        element.value = clean;
+    }
+    // Livewire wire:model listens for the input event on text fields.
+    element.dispatchEvent(new Event('input', { bubbles: true }));
+};
+
 function initBeeLocationMap(container) {
     if (container.dataset.beeMapReady === '1') {
         return;
@@ -31,6 +70,13 @@ function initBeeLocationMap(container) {
     const editable = container.dataset.editable === '1';
     const latInput = container.dataset.latInput ? document.querySelector(container.dataset.latInput) : null;
     const lngInput = container.dataset.lngInput ? document.querySelector(container.dataset.lngInput) : null;
+    const fieldSel = {
+        house: container.dataset.houseInput || '',
+        street: container.dataset.streetInput || '',
+        area: container.dataset.areaInput || '',
+        city: container.dataset.cityInput || '',
+        postcode: container.dataset.postcodeInput || '',
+    };
 
     let lat = parseFloat(container.dataset.lat || '');
     let lng = parseFloat(container.dataset.lng || '');
@@ -43,14 +89,44 @@ function initBeeLocationMap(container) {
     }
 
     if (!hasCoords) {
-        lat = 23.685;
-        lng = 90.3563;
+        // Bangladesh-focused default: start on Dhaka (already zoomed in), not the whole world.
+        lat = beeBdFallback.lat;
+        lng = beeBdFallback.lng;
     }
 
-    const map = L.map(container, { scrollWheelZoom: false }).setView([lat, lng], hasCoords ? 15 : 7);
+    const requestedZoom = parseInt(container.dataset.defaultZoom || '0', 10);
+    const zoom = hasCoords ? 16 : Number.isFinite(requestedZoom) && requestedZoom > 0 ? requestedZoom : 13;
+
+    const map = L.map(container, { scrollWheelZoom: false }).setView([lat, lng], zoom);
     beeTileLayer(map);
 
     let marker = null;
+    let deepTimer = null;
+
+    const scheduleReverseFill = (deep = false) => {
+        if (deepTimer) {
+            clearTimeout(deepTimer);
+        }
+        deepTimer = setTimeout(() => beeReverseFill(deep), 450);
+    };
+
+    // Reverse geocode the dropped pin so the district/city auto-detects
+    // (no more typing it by hand or keeping a country-wide map open).
+    const beeReverseFill = async (deep = false) => {
+        const current = marker ? marker.getLatLng() : null;
+        if (!current) return;
+        const results = await beeReverseAddress(current.lat, current.lng);
+        const place = results && results[0];
+        if (!place || !place.address) return;
+        const address = place.address;
+        beeSetField(fieldSel.city, beeDistrictOf(address));
+        beeSetField(fieldSel.area, beeAreaOf(address));
+        beeSetField(fieldSel.postcode, address.postcode);
+        if (deep) {
+            beeSetField(fieldSel.house, address.house_number || '');
+            beeSetField(fieldSel.street, address.road || address.pedestrian || address.footway || '');
+        }
+    };
 
     const placeMarker = (newLat, newLng, { fly = false } = {}) => {
         if (!Number.isFinite(newLat) || !Number.isFinite(newLng)) {
@@ -60,13 +136,18 @@ function initBeeLocationMap(container) {
             marker.setLatLng([newLat, newLng]);
         } else {
             marker = L.marker([newLat, newLng], { icon: beePinIcon(), draggable: editable }).addTo(map);
-            marker.on('dragend', () => {
-                const { lat: mkLat, lng: mkLng } = marker.getLatLng();
-                syncInputs(mkLat, mkLng);
-            });
+            if (editable) {
+                marker.on('dragend', () => {
+                    const { lat: markerLat, lng: markerLng } = marker.getLatLng();
+                    syncInputs(markerLat, markerLng);
+                    scheduleReverseFill(false);
+                });
+            }
         }
         if (fly) {
-            map.flyTo([newLat, newLng], 15);
+            map.flyTo([newLat, newLng], 16);
+        } else {
+            map.setView([newLat, newLng]);
         }
     };
 
@@ -85,11 +166,122 @@ function initBeeLocationMap(container) {
         map.on('click', (event) => {
             placeMarker(event.latlng.lat, event.latlng.lng, { fly: true });
             syncInputs(event.latlng.lat, event.latlng.lng);
+            scheduleReverseFill(false);
         });
     }
 
     if (hasCoords) {
         placeMarker(lat, lng);
+    }
+
+    // ---- Address autofill (search + pin) ----
+    const shell = container.parentElement;
+    const searchEl = shell ? shell.querySelector('[data-map-search]') : null;
+    const resultsEl = shell ? shell.querySelector('[data-map-results]') : null;
+    const locateBtn = shell ? shell.querySelector('[data-map-locate]') : null;
+
+    if (searchEl && resultsEl) {
+        let hits = [];
+        let searchTimer = null;
+        let clickedInside = false;
+
+        const renderHits = () => {
+            if (hits.length === 0) {
+                resultsEl.innerHTML = '';
+                resultsEl.classList.add('hidden');
+                return;
+            }
+            resultsEl.innerHTML = hits
+                .map(
+                    (hit, index) => `
+                    <button type="button" data-idx="${index}" class="flex w-full items-start gap-2 rounded-lg px-3 py-2 text-left text-theme-sm text-gray-700 transition hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-white/5">
+                        <svg class="mt-0.5 size-4 shrink-0 stroke-current text-gray-400" viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+                        <span>${hit.display_name || ''}</span>
+                    </button>`,
+                )
+                .join('');
+            resultsEl.classList.remove('hidden');
+        };
+
+        const pickHit = (hit) => {
+            const hitLat = parseFloat(hit.lat);
+            const hitLng = parseFloat(hit.lon);
+            if (Number.isFinite(hitLat) && Number.isFinite(hitLng)) {
+                placeMarker(hitLat, hitLng, { fly: true });
+                syncInputs(hitLat, hitLng);
+            }
+            const address = hit.address || {};
+            beeSetField(fieldSel.house, address.house_number || '');
+            beeSetField(fieldSel.street, address.road || address.pedestrian || address.footway || '');
+            beeSetField(fieldSel.area, beeAreaOf(address));
+            beeSetField(fieldSel.city, beeDistrictOf(address));
+            beeSetField(fieldSel.postcode, address.postcode || '');
+            searchEl.value = '';
+            resultsEl.innerHTML = '';
+            resultsEl.classList.add('hidden');
+        };
+
+        searchEl.addEventListener('input', () => {
+            if (searchTimer) {
+                clearTimeout(searchTimer);
+            }
+            const query = searchEl.value.trim();
+            if (query.length < 3) {
+                resultsEl.innerHTML = '';
+                resultsEl.classList.add('hidden');
+                return;
+            }
+            searchTimer = setTimeout(async () => {
+                const found = await beeSearchAddress(query);
+                hits = Array.isArray(found) ? found : [];
+                renderHits();
+            }, 450);
+        });
+
+        searchEl.addEventListener('focus', () => {
+            if (hits.length > 0) {
+                resultsEl.classList.remove('hidden');
+            }
+        });
+        searchEl.addEventListener('blur', () => {
+            setTimeout(() => {
+                if (!clickedInside) {
+                    resultsEl.classList.add('hidden');
+                }
+                clickedInside = false;
+            }, 150);
+        });
+
+        resultsEl.addEventListener('mousedown', () => {
+            clickedInside = true;
+        });
+        resultsEl.addEventListener('click', (event) => {
+            const button = event.target.closest('button[data-idx]');
+            if (!button) return;
+            pickHit(hits[parseInt(button.dataset.idx, 10)] || null);
+        });
+    }
+
+    if (locateBtn && navigator.geolocation) {
+        locateBtn.addEventListener('click', () => {
+            locateBtn.disabled = true;
+            locateBtn.style.opacity = '0.6';
+            navigator.geolocation.getCurrentPosition(
+                (position) => {
+                    const { latitude, longitude } = position.coords;
+                    placeMarker(latitude, longitude, { fly: true });
+                    syncInputs(latitude, longitude);
+                    scheduleReverseFill(false);
+                    locateBtn.disabled = false;
+                    locateBtn.style.opacity = '';
+                },
+                () => {
+                    locateBtn.disabled = false;
+                    locateBtn.style.opacity = '';
+                },
+                { enableHighAccuracy: true, timeout: 8000 },
+            );
+        });
     }
 
     container.dataset.beeMapReady = '1';
