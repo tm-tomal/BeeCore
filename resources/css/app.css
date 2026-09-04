@@ -784,3 +784,22 @@ span.flatpickr-weekday,
 .search-kbd {
   font-size: 12px;
 }
+
+/* Bee searchable select — auto-upgraded native <select> theming */
+:root {
+  --bee-bg: #ffffff;
+  --bee-text: #1d2939;
+  --bee-muted: #98a2b3;
+  --bee-border: #e4e7ec;
+  --bee-hover: rgba(16, 24, 40, 0.05);
+  --bee-hover-accent: rgba(70, 95, 255, 0.08);
+}
+
+.dark {
+  --bee-bg: #101828;
+  --bee-text: rgba(255, 255, 255, 0.9);
+  --bee-muted: #98a2b3;
+  --bee-border: #344054;
+  --bee-hover: rgba(255, 255, 255, 0.06);
+  --bee-hover-accent: rgba(70, 95, 255, 0.18);
+}

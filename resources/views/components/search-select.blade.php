@@ -9,6 +9,7 @@
 @endphp
 
 <div
+    data-bee-search-select
     x-data="{
         open: false,
         search: '',

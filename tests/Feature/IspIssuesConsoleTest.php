@@ -144,6 +144,30 @@ class IspIssuesConsoleTest extends TestCase
         $this->assertDatabaseCount('attachments', 0);
     }
 
+    public function test_staff_can_open_an_issue_on_a_full_page_detail_view(): void
+    {
+        $tenant = $this->tenant('iss-k', 'Theta Net');
+        $staff = User::factory()->create(['tenant_id' => $tenant->id, 'role' => User::ROLE_SUPPORT]);
+        $issue = Issue::create([
+            'tenant_id' => $tenant->id, 'created_by' => $staff->id, 'reporter_name' => 'Rafi',
+            'subject' => 'Cable down near the lake', 'category' => 'connection', 'priority' => 'high',
+            'status' => 'new', 'source' => 'staff', 'description' => 'Since 9 AM.',
+        ]);
+
+        Livewire::actingAs($staff)
+            ->test(IspIssues::class)
+            ->call('viewIssue', $issue->id)
+            ->assertSet('viewMode', 'detail')
+            ->assertSet('detailIssueId', $issue->id)
+            ->assertSee('Cable down near the lake')
+            ->assertSee('Report info')
+            ->call('updateStatus', $issue->id, 'in_progress')
+            ->assertHasNoErrors()
+            ->call('closeDetail')
+            ->assertSet('viewMode', 'index')
+            ->assertSet('detailIssueId', null);
+    }
+
     public function test_issue_attachment_can_only_be_streamed_by_the_owning_tenant(): void
     {
         Storage::fake('local');
@@ -174,5 +198,114 @@ class IspIssuesConsoleTest extends TestCase
         $tenant->update(['status' => 'suspended']);
 
         $this->get('/r/'.$tenant->slug.'/report')->assertNotFound();
+    }
+
+    public function test_admin_can_assign_issue_to_a_member_who_can_then_reply(): void
+    {
+        $tenant = $this->tenant('iss-l', 'Iota Net');
+        $admin = User::factory()->create(['tenant_id' => $tenant->id, 'role' => User::ROLE_TENANT_ADMIN]);
+        $engineer = User::factory()->create(['tenant_id' => $tenant->id, 'role' => User::ROLE_NETWORK_ENGINEER]);
+        $issue = Issue::create([
+            'tenant_id' => $tenant->id, 'created_by' => $admin->id, 'reporter_name' => 'Rafi',
+            'subject' => 'Weak signal on floor 3', 'category' => 'network',
+            'status' => 'new', 'source' => 'public',
+        ]);
+
+        Livewire::actingAs($admin)
+            ->test(IspIssues::class)
+            ->call('viewIssue', $issue->id)
+            ->assertSee('Assigned to fix')
+            ->assertSet('assignToUserId', null)
+            ->set('assignToUserId', $engineer->id)
+            ->call('saveAssignment')
+            ->assertHasNoErrors();
+
+        $issue->refresh();
+        $this->assertSame($engineer->id, $issue->assigned_to);
+
+        Livewire::actingAs($engineer)
+            ->test(IspIssues::class)
+            ->call('viewIssue', $issue->id)
+            ->assertSet('assignToUserId', $engineer->id)
+            ->assertSee($engineer->name)
+            ->set('replyMessage', 'Replaced the access point, testing now.')
+            ->call('reply')
+            ->assertHasNoErrors()
+            ->assertSet('replyMessage', '');
+
+        $this->assertDatabaseHas('issue_replies', [
+            'issue_id' => $issue->id,
+            'user_id' => $engineer->id,
+            'message' => 'Replaced the access point, testing now.',
+        ]);
+
+        $issue->refresh();
+        $this->assertSame('in_progress', $issue->status);
+    }
+
+    public function test_unassigned_member_cannot_reply_or_assign(): void
+    {
+        $tenant = $this->tenant('iss-m', 'Kappa Net');
+        $admin = User::factory()->create(['tenant_id' => $tenant->id, 'role' => User::ROLE_TENANT_ADMIN]);
+        $engineer = User::factory()->create(['tenant_id' => $tenant->id, 'role' => User::ROLE_NETWORK_ENGINEER]);
+        $stranger = User::factory()->create(['tenant_id' => $tenant->id, 'role' => User::ROLE_SUPPORT]);
+        $issue = Issue::create([
+            'tenant_id' => $tenant->id, 'created_by' => $admin->id, 'reporter_name' => 'Sami',
+            'subject' => 'Billing question', 'category' => 'billing',
+            'status' => 'new', 'source' => 'public',
+        ]);
+
+        Livewire::actingAs($stranger)
+            ->test(IspIssues::class)
+            ->call('viewIssue', $issue->id)
+            ->assertDontSee('Reassign')
+            ->set('assignToUserId', $engineer->id)
+            ->call('saveAssignment')
+            ->assertStatus(403);
+
+        Livewire::actingAs($stranger)
+            ->test(IspIssues::class)
+            ->call('viewIssue', $issue->id)
+            ->set('replyMessage', 'Not my issue but let me reply')
+            ->call('reply')
+            ->assertStatus(403);
+
+        $issue->refresh();
+        $this->assertNull($issue->assigned_to);
+        $this->assertDatabaseCount('issue_replies', 0);
+    }
+
+    public function test_admin_can_unassign_and_reply_directly(): void
+    {
+        $tenant = $this->tenant('iss-n', 'Lambda Net');
+        $admin = User::factory()->create(['tenant_id' => $tenant->id, 'role' => User::ROLE_TENANT_ADMIN]);
+        $engineer = User::factory()->create(['tenant_id' => $tenant->id, 'role' => User::ROLE_NETWORK_ENGINEER]);
+        $issue = Issue::create([
+            'tenant_id' => $tenant->id, 'created_by' => $admin->id, 'assigned_to' => $engineer->id,
+            'reporter_name' => 'Jamil', 'subject' => 'Router keeps rebooting', 'category' => 'connection',
+            'status' => 'new', 'source' => 'staff',
+        ]);
+
+        Livewire::actingAs($admin)
+            ->test(IspIssues::class)
+            ->call('viewIssue', $issue->id)
+            ->set('replyMessage', 'We are checking with the supplier.')
+            ->call('reply')
+            ->assertHasNoErrors();
+
+        $this->assertDatabaseHas('issue_replies', [
+            'issue_id' => $issue->id,
+            'user_id' => $admin->id,
+            'message' => 'We are checking with the supplier.',
+        ]);
+
+        Livewire::actingAs($admin)
+            ->test(IspIssues::class)
+            ->call('viewIssue', $issue->id)
+            ->call('unassign')
+            ->assertHasNoErrors();
+
+        $issue->refresh();
+        $this->assertNull($issue->assigned_to);
     }
 }

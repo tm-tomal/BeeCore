@@ -24,7 +24,7 @@ class IspIssues extends Component
 
     public string $categoryFilter = '';
 
-    public string $viewMode = 'index'; // index | create
+    public string $viewMode = 'index'; // index | create | detail
 
     // Create form
     public string $subject = '';
@@ -42,6 +42,10 @@ class IspIssues extends Component
     public ?int $customerId = null;
 
     public ?int $detailIssueId = null;
+
+    public string $replyMessage = '';
+
+    public ?int $assignToUserId = null;
 
     public function boot(): void
     {
@@ -115,11 +119,111 @@ class IspIssues extends Component
     public function viewIssue(int $id): void
     {
         $this->detailIssueId = $id;
+        $this->replyMessage = '';
+        $this->assignToUserId = null;
+        $this->viewMode = 'detail';
     }
 
     public function closeDetail(): void
     {
         $this->detailIssueId = null;
+        $this->replyMessage = '';
+        $this->assignToUserId = null;
+        $this->viewMode = 'index';
+    }
+
+    /* ---------- Assign & reply ---------- */
+
+    public function saveAssignment(): void
+    {
+        $this->authorizeOwnerOrSuper();
+
+        $issue = Issue::query()
+            ->where('tenant_id', $this->tenantId())
+            ->findOrFail($this->detailIssueId);
+
+        $assignable = $this->assignableUsers()->whereKey($this->assignToUserId)->first();
+
+        abort_unless($assignable, 422, 'Select a staff member to assign this issue to.');
+
+        $issue->update(['assigned_to' => $assignable->id]);
+
+        AuditLog::record('issue.assigned', $issue, ['assigned_to' => $assignable->id], tenantId: $this->tenantId());
+        session()->flash('message', __('Issue assigned to :name.', ['name' => $assignable->name]));
+    }
+
+    public function unassign(): void
+    {
+        $this->authorizeOwnerOrSuper();
+
+        $issue = Issue::query()
+            ->where('tenant_id', $this->tenantId())
+            ->findOrFail($this->detailIssueId);
+
+        $issue->update(['assigned_to' => null]);
+
+        $this->assignToUserId = null;
+
+        AuditLog::record('issue.unassigned', $issue, tenantId: $this->tenantId());
+        session()->flash('message', __('Issue unassigned.'));
+    }
+
+    public function reply(): void
+    {
+        $data = $this->validate(['replyMessage' => ['required', 'string', 'max:2000']]);
+
+        $issue = Issue::query()
+            ->where('tenant_id', $this->tenantId())
+            ->findOrFail($this->detailIssueId);
+
+        abort_unless($this->userCanReply($issue), 403, __('Only the ISP admin or the assigned staff member can reply to this issue.'));
+
+        \App\Models\IssueReply::create([
+            'issue_id' => $issue->id,
+            'user_id' => auth()->id(),
+            'message' => $data['replyMessage'],
+            'created_at' => now(),
+        ]);
+
+        if ($issue->status === Issue::STATUS_NEW) {
+            $issue->update(['status' => Issue::STATUS_IN_PROGRESS]);
+        }
+
+        AuditLog::record('issue.replied', $issue, tenantId: $this->tenantId());
+        $this->replyMessage = '';
+        $this->js('const el = document.getElementById("issue-reply"); if (el) el.value = "";');
+        session()->flash('message', __('Reply posted.'));
+    }
+
+    private function userCanReply(Issue $issue): bool
+    {
+        $user = auth()->user();
+
+        if (! $user) {
+            return false;
+        }
+
+        return $user->isSuperAdmin()
+            || $user->role === User::ROLE_TENANT_ADMIN
+            || (int) $issue->assigned_to === (int) $user->id;
+    }
+
+    private function authorizeOwnerOrSuper(): void
+    {
+        $user = auth()->user();
+
+        abort_unless($user?->isSuperAdmin() || $user?->role === User::ROLE_TENANT_ADMIN, 403);
+    }
+
+    /**
+     * Workspace members who can be assigned to fix an issue.
+     */
+    private function assignableUsers(): \Illuminate\Database\Eloquent\Builder
+    {
+        return User::query()
+            ->where('tenant_id', $this->tenantId())
+            ->where('status', 'active')
+            ->whereIn('role', [User::ROLE_SUPPORT, User::ROLE_NETWORK_ENGINEER]);
     }
 
     public function updateStatus(int $id, string $status): void
@@ -158,6 +262,15 @@ class IspIssues extends Component
 
         $workspace = Tenant::query()->find($tenantId);
 
+        $detailIssue = $this->detailIssueId
+            ? Issue::with(['customer', 'creator', 'assignee', 'attachments', 'replies.user'])->where('tenant_id', $tenantId)->find($this->detailIssueId)
+            : null;
+
+        // Keep the assign dropdown in sync with the current assignee.
+        if ($detailIssue && $this->assignToUserId === null) {
+            $this->assignToUserId = $detailIssue->assigned_to;
+        }
+
         return view('livewire.isp-issues', [
             'issues' => $base->with(['customer', 'creator'])
                 ->when($this->statusFilter, fn (Builder $q) => $q->where('status', $this->statusFilter))
@@ -170,9 +283,8 @@ class IspIssues extends Component
                 'resolved' => (clone $base)->whereIn('status', [Issue::STATUS_RESOLVED, Issue::STATUS_CLOSED])->count(),
                 'fromCustomers' => (clone $base)->where('source', 'public')->count(),
             ],
-            'detailIssue' => $this->detailIssueId
-                ? Issue::with(['customer', 'creator', 'attachments'])->where('tenant_id', $tenantId)->find($this->detailIssueId)
-                : null,
+            'detailIssue' => $detailIssue,
+            'assignableStaff' => $this->assignableUsers()->orderBy('name')->get(),
             'customers' => Customer::query()->where('tenant_id', $tenantId)->orderBy('name')->get(['id', 'name', 'phone']),
             'categories' => $this->categoryLabels(),
             'statuses' => $this->statusLabels(),

@@ -2,6 +2,7 @@
     'icon' => 'grid',
     'label' => '',
     'value' => '',
+    'amount' => null,
     'sub' => '',
     'currency' => false,
     'count' => null,
@@ -39,32 +40,51 @@
         'grid' => 'from-gray-500 to-gray-600 text-white',
     ];
     $trendColor = $trendUp ? 'bg-success-50 text-success-600 dark:bg-success-500/15 dark:text-success-400' : 'bg-error-50 text-error-600 dark:bg-error-500/15 dark:text-error-400';
+
+    // When an :amount is given the component acts as a money formatter:
+    // it renders the currency symbol + grouped value from the raw number,
+    // so pages never worry about thousands separators themselves.
+    $isMoney = $amount !== null && $currency;
+    $decimals = $isMoney && (int) $decimals === 0 ? 2 : (int) $decimals;
+    $displayValue = $isMoney ? number_format((float) $amount, $decimals) : (string) $value;
+    $animateCount = $isMoney ? (float) $amount : $count;
 @endphp
 
-<div class="group rounded-2xl border border-gray-200 bg-white p-5 shadow-theme-xs transition duration-200 hover:-translate-y-0.5 hover:border-brand-200 hover:shadow-theme-md dark:border-gray-800 dark:bg-white/[0.03] dark:hover:border-gray-700 md:p-6">
-    <div class="flex items-center gap-4">
+<div class="group flex h-full flex-col rounded-2xl border border-gray-200 bg-white p-5 shadow-theme-xs transition duration-200 hover:-translate-y-0.5 hover:border-brand-200 hover:shadow-theme-md dark:border-gray-800 dark:bg-white/[0.03] dark:hover:border-gray-700 sm:p-6">
+    <div class="flex items-start justify-between gap-4">
         <span class="grid size-12 shrink-0 place-items-center rounded-xl bg-gradient-to-br shadow-theme-xs {{ $accents[$icon] ?? $accents['grid'] }}">
             <svg class="size-6 stroke-current" viewBox="0 0 24 24" fill="none" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">{!! $paths[$icon] ?? $paths['grid'] !!}</svg>
         </span>
-        <div class="min-w-0 flex-1">
-            <p class="truncate text-sm text-gray-500 dark:text-gray-400">{{ $label }}</p>
-            <h4 class="mt-1 text-title-sm font-bold text-gray-800 dark:text-white/90">
-                @if($currency)<span>৳</span>@endif
-                <span
-                    @if($count !== null) data-count="{{ $count }}" data-decimals="{{ $decimals }}" @endif
-                >{{ $value }}</span>
+        @if($href)
+            <a href="{{ $href }}" aria-label="{{ $label }}" class="grid size-8 shrink-0 place-items-center rounded-lg border border-gray-200 text-gray-400 transition hover:border-brand-300 hover:bg-brand-50 hover:text-brand-600 dark:border-gray-700 dark:hover:border-brand-500/40 dark:hover:bg-brand-500/10 dark:hover:text-brand-400">
+                <svg class="size-4 stroke-current" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17L17 7M7 7h10v10"/></svg>
+            </a>
+        @endif
+    </div>
+
+    <div class="mt-5 flex items-end justify-between gap-3">
+        <div class="min-w-0">
+            <p class="truncate text-theme-sm text-gray-500 dark:text-gray-400">{{ $label }}</p>
+            <h4 class="mt-1.5 flex items-baseline gap-0.5 text-title-sm font-bold tracking-tight text-gray-800 dark:text-white/90">
+                @if($isMoney)
+                    <span class="text-lg font-semibold text-gray-400 dark:text-gray-500">৳</span>
+                @endif
+                <span class="whitespace-nowrap tabular-nums"
+                    @if($animateCount !== null) data-count="{{ $animateCount }}" data-decimals="{{ $decimals }}" @endif
+                >{{ $displayValue }}</span>
             </h4>
             @if($sub)
-                <p class="mt-1 truncate text-theme-xs text-gray-500 dark:text-gray-400">{{ $sub }}</p>
-            @endif
-            @if($trend !== null)
-                <span class="mt-1.5 inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold {{ $trendColor }}">
-                    <svg class="size-3 stroke-current" viewBox="0 0 24 24" fill="none" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-                        {!! $trendUp ? '<polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/>' : '<polyline points="23 18 13.5 8.5 8.5 13.5 1 6"/><polyline points="17 18 23 18 23 12"/>' !!}
-                    </svg>
-                    {{ $trend }}
-                </span>
+                <p class="mt-1 truncate text-theme-xs text-gray-400 dark:text-gray-500">{{ $sub }}</p>
             @endif
         </div>
+
+        @if($trend !== null)
+            <span class="mb-0.5 inline-flex shrink-0 items-center gap-1 rounded-full px-2.5 py-1 text-theme-xs font-semibold {{ $trendColor }}">
+                <svg class="size-3.5 stroke-current" viewBox="0 0 24 24" fill="none" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                    {!! $trendUp ? '<polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/>' : '<polyline points="23 18 13.5 8.5 8.5 13.5 1 6"/><polyline points="17 18 23 18 23 12"/>' !!}
+                </svg>
+                {{ $trend }}
+            </span>
+        @endif
     </div>
 </div>

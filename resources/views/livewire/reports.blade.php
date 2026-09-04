@@ -42,9 +42,9 @@
 
     <!-- Metric cards -->
     <section class="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4 md:gap-6">
-        <x-dashboard-metric icon="wallet" label="{{ __('Collections') }}" :count="$metrics['collections']" decimals="2" currency value="{{ number_format($metrics['collections'], 2) }}" sub="{{ __(':count transactions', ['count' => number_format($metrics['transactions'])]) }}" />
-        <x-dashboard-metric icon="receipt" label="{{ __('Invoiced') }}" :count="$metrics['invoiced']" decimals="2" currency value="{{ number_format($metrics['invoiced'], 2) }}" :trend="__(':pct% collected', ['pct' => $metrics['collection_rate']])" sub="{{ __('Selected period') }}" />
-        <x-dashboard-metric icon="users" label="{{ __('Customers') }}" :count="$metrics['customers']" value="{{ number_format($metrics['customers']) }}" :trend="__(':count active', ['count' => $metrics['active_customers']])" sub="{{ __('Total in workspace') }}" />
+        <x-dashboard-metric icon="wallet" label="{{ __('Collections') }}" :amount="$metrics['collections']" currency sub="{{ __(':count transactions', ['count' => number_format($metrics['transactions'])]) }}" />
+        <x-dashboard-metric icon="receipt" label="{{ __('Invoiced') }}" :amount="$metrics['invoiced']" currency :trend="__(':pct% collected', ['pct' => $metrics['collection_rate']])" />
+        <x-dashboard-metric icon="users" label="{{ __('Customers') }}" :count="$metrics['customers']" value="{{ number_format($metrics['customers']) }}" :trend="__(':count active', ['count' => $metrics['active_customers']])" />
         <x-dashboard-metric icon="signal" label="{{ __('Online devices') }}" :count="$metrics['online_devices']" value="{{ number_format($metrics['online_devices']) }}" sub="{{ __('Network · :count active resellers', ['count' => $metrics['resellers']]) }}" />
     </section>
 

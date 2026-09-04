@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\MorphMany;
 
 class Issue extends Model
@@ -27,7 +28,7 @@ class Issue extends Model
     public const STATUS_CLOSED = 'closed';
 
     protected $fillable = [
-        'tenant_id', 'customer_id', 'created_by', 'reporter_name', 'reporter_phone',
+        'tenant_id', 'customer_id', 'created_by', 'assigned_to', 'reporter_name', 'reporter_phone',
         'subject', 'category', 'priority', 'status', 'source', 'description', 'resolved_at',
     ];
 
@@ -50,8 +51,18 @@ class Issue extends Model
         return $this->belongsTo(User::class, 'created_by');
     }
 
+    public function assignee(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'assigned_to');
+    }
+
     public function attachments(): MorphMany
     {
         return $this->morphMany(Attachment::class, 'attachable');
+    }
+
+    public function replies(): HasMany
+    {
+        return $this->hasMany(IssueReply::class)->latest('id');
     }
 }
