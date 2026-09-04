@@ -338,7 +338,7 @@ class RemainingPanelsTest extends TestCase {
         $this->assertSame($planA->id, $subscription->fresh()->saas_plan_id);
     }
 
-    public function test_online_bkash_checkout_creates_pending_order_and_bee_pay_intent(): void
+    public function test_online_bkash_checkout_creates_only_a_payment_intent_until_confirmed(): void
     {
         $tenant = Tenant::create(['name' => 'Online ISP', 'slug' => 'online-isp', 'status' => 'active', 'currency' => 'BDT', 'timezone' => 'UTC', 'operation_mode' => 'manual']);
         $user = User::factory()->create(['tenant_id' => $tenant->id, 'role' => User::ROLE_TENANT_ADMIN]);
@@ -361,18 +361,67 @@ class RemainingPanelsTest extends TestCase {
             ->assertHasNoErrors()
             ->assertRedirect();
 
-        $subscription = TenantSubscription::where('tenant_id', $tenant->id)->firstOrFail();
-        $this->assertSame('pending_approval', $subscription->status);
+        // No order rows are written before bKash confirms the payment — a failed
+        // attempt therefore leaves nothing behind.
+        $this->assertDatabaseCount('tenant_subscriptions', 0);
+        $this->assertDatabaseCount('saas_invoices', 0);
+        $this->assertDatabaseCount('saas_payments', 0);
+        $this->assertDatabaseCount('tenant_subscription_events', 0);
 
-        // Nothing is settled until bKash confirms — the invoice and payment stay pending.
-        $this->assertDatabaseHas('saas_invoices', ['tenant_subscription_id' => $subscription->id, 'status' => 'pending', 'amount' => 1000]);
-        $this->assertDatabaseHas('saas_payments', ['tenant_id' => $tenant->id, 'status' => 'pending', 'method' => 'bkash', 'amount' => 1000]);
-
-        // A hosted BeeCore payment intent was created for the real bKash session.
+        // The order details ride inside a hosted BeeCore payment intent.
         $intent = \App\Models\BeePaymentIntent::where('tenant_id', $tenant->id)->firstOrFail();
         $this->assertSame('saas_plan', $intent->kind);
         $this->assertSame('created', $intent->status);
         $this->assertSame(1000.0, (float) $intent->amount);
+        $this->assertTrue($intent->meta['deferred'] ?? false);
+        $this->assertSame($plan->id, $intent->meta['saas_plan_id']);
+        $this->assertSame('monthly', $intent->meta['billing_cycle']);
+    }
+
+    public function test_online_bkash_addon_checkout_creates_only_a_payment_intent(): void
+    {
+        $tenant = Tenant::create(['name' => 'Addon Online ISP', 'slug' => 'addon-online-isp', 'status' => 'active', 'currency' => 'BDT', 'timezone' => 'UTC', 'operation_mode' => 'manual']);
+        $user = User::factory()->create(['tenant_id' => $tenant->id, 'role' => User::ROLE_TENANT_ADMIN]);
+
+        $plan = SaasPlan::create([
+            'name' => 'Starter', 'slug' => 'addon-online-plan', 'monthly_price' => 1000, 'yearly_price' => 10000,
+            'customer_limit' => 300, 'is_active' => true, 'operation_mode' => 'manual',
+        ]);
+        TenantSubscription::create([
+            'tenant_id' => $tenant->id, 'saas_plan_id' => $plan->id, 'status' => 'active',
+            'billing_cycle' => 'monthly', 'price' => 1000, 'starts_at' => today()->subMonth(),
+            'current_period_ends_at' => today()->addMonth(), 'auto_renew' => true,
+        ]);
+
+        $addon = \App\Models\Addon::create([
+            'name' => 'SMS Pack', 'slug' => 'addon-online-sms', 'category' => 'sms',
+            'description' => 'Extra SMS credits', 'price' => 500, 'billing_cycle' => 'monthly',
+            'usage_limit' => 1000, 'is_active' => true,
+        ]);
+
+        $gateway = \App\Models\PaymentGateway::create([
+            'name' => 'bKash', 'slug' => 'online-bkash-addon', 'provider' => 'bkash', 'mode' => 'live', 'is_active' => true,
+        ]);
+
+        Livewire::actingAs($user)
+            ->test(\App\Livewire\IspAddons::class)
+            ->call('buy', $addon->id)
+            ->assertSet('checkoutAddonId', $addon->id)
+            ->set('checkoutGateway', 'gateway:'.$gateway->id)
+            ->call('confirmBuy')
+            ->assertHasNoErrors()
+            ->assertRedirect();
+
+        $this->assertDatabaseCount('tenant_addons', 0);
+        $this->assertDatabaseCount('saas_invoices', 0);
+        $this->assertDatabaseCount('saas_payments', 0);
+
+        $intent = \App\Models\BeePaymentIntent::where('tenant_id', $tenant->id)->firstOrFail();
+        $this->assertSame('saas_addon', $intent->kind);
+        $this->assertSame('created', $intent->status);
+        $this->assertSame(500.0, (float) $intent->amount);
+        $this->assertTrue($intent->meta['deferred'] ?? false);
+        $this->assertSame($addon->id, $intent->meta['addon_id']);
     }
 
     public function test_manual_checkout_waits_for_beecore_approval(): void

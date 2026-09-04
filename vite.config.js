@@ -21,4 +21,11 @@ export default defineConfig({
             ignored: ['**/storage/framework/views/**'],
         },
     },
+    build: {
+        // ApexCharts is already loaded lazily via dynamic import() (app.js),
+        // so it never blocks first paint. Its chunk is ~810 kB minified
+        // (~228 kB gzip) by nature, so we set the limit above that to keep
+        // the build output clean.
+        chunkSizeWarningLimit: 900,
+    },
 });

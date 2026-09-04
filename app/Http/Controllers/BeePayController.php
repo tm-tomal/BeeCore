@@ -2,15 +2,21 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Addon;
+use App\Models\AuditLog;
 use App\Models\BeePaymentIntent;
 use App\Models\Invoice;
 use App\Models\Payment;
 use App\Models\SaasInvoice;
+use App\Models\SaasInvoiceItem;
 use App\Models\SaasPayment;
+use App\Models\SaasPlan;
 use App\Models\SystemSetting;
 use App\Models\TenantAddon;
+use App\Models\TenantSubscription;
 use App\Models\TenantSubscriptionEvent;
 use App\Services\BkashGateway;
+use App\Services\SaasSubscriptionBilling;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
@@ -288,8 +294,257 @@ class BeePayController
 
     private function settleSaas(BeePaymentIntent $intent, array $meta, string $trxID): void
     {
-        $invoice = SaasInvoice::query()->where('tenant_id', $intent->tenant_id)->lockForUpdate()->findOrFail($meta['saas_invoice_id'] ?? 0);
+        // Online bKash checkout orders carry no pre-created rows — the order
+        // rides inside the intent and is materialised only once bKash confirms
+        // the payment, so a failed attempt leaves no records behind.
+        if (! empty($meta['deferred'])) {
+            if ($intent->kind === BeePaymentIntent::KIND_SAAS_ADDON) {
+                $this->materializeDeferredAddonOrder($intent, $trxID);
+            } else {
+                $this->materializeDeferredSubscriptionOrder($intent, $trxID);
+            }
 
+            return;
+        }
+
+        // Legacy / “Pay now” invoices that already exist as pending rows.
+        $invoice = SaasInvoice::query()
+            ->where('tenant_id', $intent->tenant_id)
+            ->lockForUpdate()
+            ->findOrFail($meta['saas_invoice_id'] ?? 0);
+
+        $paid = $this->settleBkashInvoice($invoice, $trxID);
+
+        if (isset($meta['tenant_addon_id']) && $paid) {
+            $addon = TenantAddon::query()->where('tenant_id', $intent->tenant_id)->find($meta['tenant_addon_id']);
+            if ($addon && $addon->status === 'pending_approval') {
+                $addon->update(['status' => 'active']);
+                \App\Services\SmsGateway::creditSmsAddon($addon);
+            }
+        }
+
+        $subscription = $invoice->subscription;
+
+        if ($paid && $subscription && in_array($subscription->status, ['pending_approval', 'past_due', 'suspended'], true)) {
+            $fromStatus = $subscription->status;
+            $subscription->update(['status' => 'active']);
+            if ($subscription->tenant && $subscription->tenant->status === 'suspended') {
+                $subscription->tenant->update(['status' => 'active']);
+            }
+
+            TenantSubscriptionEvent::create([
+                'tenant_subscription_id' => $subscription->id,
+                'user_id' => null,
+                'event' => $fromStatus === 'pending_approval' ? 'subscription.approved' : 'subscription.reactivated',
+                'from_status' => $fromStatus,
+                'to_status' => 'active',
+                'metadata' => ['source' => 'bkash_callback', 'trx_id' => $trxID],
+                'created_at' => now(),
+            ]);
+        }
+    }
+
+    /**
+     * Materialise a deferred plan order once bKash confirms the payment:
+     * activates (or changes) the subscription and records a paid invoice.
+     */
+    private function materializeDeferredSubscriptionOrder(BeePaymentIntent $intent, string $trxID): void
+    {
+        $meta = $intent->meta ?? [];
+        $plan = SaasPlan::find((int) ($meta['saas_plan_id'] ?? 0));
+
+        if (! $plan) {
+            throw new \RuntimeException('The BeeCore plan on this order no longer exists.');
+        }
+
+        $tenantId = $intent->tenant_id;
+        $cycle = ($meta['billing_cycle'] ?? 'monthly') === 'yearly' ? 'yearly' : 'monthly';
+        $price = (float) $intent->amount;
+
+        $subscription = TenantSubscription::query()
+            ->where('tenant_id', $tenantId)
+            ->latest('id')
+            ->lockForUpdate()
+            ->first();
+
+        $create = ! $subscription || $subscription->status === 'cancelled';
+
+        if ($create) {
+            // Fresh subscription, activated immediately.
+            $starts = today();
+            $periodEnd = $cycle === 'yearly'
+                ? $starts->copy()->addYear()->subDay()
+                : $starts->copy()->addMonth()->subDay();
+
+            $subscription = TenantSubscription::create([
+                'tenant_id' => $tenantId,
+                'saas_plan_id' => $plan->id,
+                'status' => 'active',
+                'billing_cycle' => $cycle,
+                'price' => $price,
+                'starts_at' => $starts,
+                'current_period_ends_at' => $periodEnd,
+                'grace_ends_at' => $periodEnd->copy()->addDays($plan->grace_days),
+                'auto_renew' => true,
+            ]);
+
+            $fromStatus = null;
+            $planChanged = false;
+            $periodStart = $starts;
+        } else {
+            // Paid against the current subscription: plan change or reactivation.
+            $fromStatus = $subscription->status;
+            $planChanged = $subscription->saas_plan_id !== $plan->id
+                || $subscription->billing_cycle !== $cycle
+                || (float) $subscription->price !== $price;
+
+            $periodStart = $subscription->current_period_ends_at && $subscription->current_period_ends_at->isFuture()
+                ? $subscription->current_period_ends_at->copy()->addDay()
+                : today();
+
+            $subscription->update([
+                'saas_plan_id' => $plan->id,
+                'billing_cycle' => $cycle,
+                'price' => $price,
+                'status' => 'active',
+                'auto_renew' => true,
+            ]);
+        }
+
+        if ($subscription->tenant && $subscription->tenant->status === 'suspended') {
+            $subscription->tenant->update(['status' => 'active']);
+        }
+
+        $periodEnd = $cycle === 'yearly'
+            ? $periodStart->copy()->addYear()->subDay()
+            : $periodStart->copy()->addMonth()->subDay();
+
+        $dueDate = $periodStart->copy()->addDays(max((int) $plan->grace_days, 7));
+        $invoice = (new SaasSubscriptionBilling())->createInvoiceForPeriod($subscription, $periodStart, $periodEnd, $dueDate);
+
+        $this->recordBkashPayment($invoice, $trxID);
+        $this->settleBkashInvoice($invoice, $trxID);
+
+        $this->recordSubscriptionEvent($subscription, $trxID, $create, $fromStatus, $planChanged, $plan->id, $cycle, $price);
+
+        AuditLog::record(
+            $create ? 'tenant.subscription.created' : ($planChanged ? 'tenant.subscription.plan_changed' : 'tenant.subscription.updated'),
+            $subscription,
+            ['source' => 'bkash_callback', 'trx_id' => $trxID, 'plan_id' => $plan->id, 'billing_cycle' => $cycle],
+            tenantId: $tenantId,
+        );
+    }
+
+    /**
+     * Materialise a deferred add-on order once bKash confirms the payment.
+     */
+    private function materializeDeferredAddonOrder(BeePaymentIntent $intent, string $trxID): void
+    {
+        $meta = $intent->meta ?? [];
+        $addonProduct = Addon::find((int) ($meta['addon_id'] ?? 0));
+
+        if (! $addonProduct) {
+            throw new \RuntimeException('The add-on on this order no longer exists.');
+        }
+
+        $tenantId = $intent->tenant_id;
+        $cycle = $addonProduct->billing_cycle;
+        $recurring = in_array($cycle, ['monthly', 'yearly'], true);
+        $amount = (float) $intent->amount;
+        $start = today();
+        $periodEnd = $cycle === 'yearly'
+            ? $start->copy()->addYear()->subDay()
+            : ($cycle === 'monthly' ? $start->copy()->addMonth()->subDay() : null);
+
+        // The add-on invoice must hang off the workspace's base subscription
+        // (column is NOT NULL); prefer the latest live one, else any latest row.
+        $subscription = TenantSubscription::query()
+            ->where('tenant_id', $tenantId)
+            ->where('status', '!=', 'cancelled')
+            ->latest('id')
+            ->first();
+
+        if (! $subscription) {
+            $subscription = TenantSubscription::query()
+                ->where('tenant_id', $tenantId)
+                ->latest('id')
+                ->first();
+        }
+
+        $row = TenantAddon::create([
+            'tenant_id' => $tenantId,
+            'addon_id' => $addonProduct->id,
+            'status' => 'active',
+            'price' => (float) $addonProduct->price,
+            'billing_cycle' => $cycle,
+            'assigned_by' => null,
+            'starts_at' => now(),
+            'period_start' => $start,
+            'period_end' => $periodEnd,
+            'auto_renew' => $recurring,
+        ]);
+
+        \App\Services\SmsGateway::creditSmsAddon($row);
+
+        $invoice = SaasInvoice::create([
+            'tenant_id' => $tenantId,
+            'tenant_subscription_id' => $subscription?->id,
+            'tenant_addon_id' => $row->id,
+            'invoice_number' => SaasInvoice::draftNumber(),
+            'status' => 'pending',
+            'period_start' => $start->toDateString(),
+            'period_end' => ($periodEnd ?? $start)->toDateString(),
+            'amount' => $amount,
+            'due_date' => $start->toDateString(),
+        ]);
+        $invoice->setSequentialNumber();
+
+        SaasInvoiceItem::create([
+            'saas_invoice_id' => $invoice->id,
+            'type' => 'charge',
+            'description' => $addonProduct->name.' add-on ('.$cycle.')',
+            'amount' => $amount,
+            'created_by' => null,
+            'created_at' => now(),
+        ]);
+
+        $this->recordBkashPayment($invoice, $trxID);
+        $this->settleBkashInvoice($invoice, $trxID);
+
+        AuditLog::record('addon.purchased', $row, [
+            'addon_id' => $addonProduct->id,
+            'amount' => $amount,
+            'cycle' => $cycle,
+            'source' => 'bkash_callback',
+            'trx_id' => $trxID,
+        ], tenantId: $tenantId);
+    }
+
+    /**
+     * Create the completed bKash payment row for a SaaS invoice and settle it.
+     */
+    private function recordBkashPayment(SaasInvoice $invoice, string $trxID): void
+    {
+        SaasPayment::create([
+            'tenant_id' => $invoice->tenant_id,
+            'saas_invoice_id' => $invoice->id,
+            'recorded_by' => null,
+            'amount' => (float) $invoice->amount,
+            'method' => 'bkash',
+            'reference' => 'bKash '.$trxID,
+            'status' => 'pending',
+            'paid_at' => now(),
+        ]);
+    }
+
+    /**
+     * Complete pending bKash payments on an invoice and mark it paid when the
+     * collected amount covers the invoice.
+     *
+     * @return bool whether the invoice is now fully covered
+     */
+    private function settleBkashInvoice(SaasInvoice $invoice, string $trxID): bool
+    {
         SaasPayment::query()
             ->where('saas_invoice_id', $invoice->id)
             ->where('status', 'pending')
@@ -306,37 +561,42 @@ class BeePayController
 
         if ($paid && $invoice->status !== 'paid') {
             $invoice->update(['status' => 'paid', 'paid_at' => now()]);
-        } elseif (! $paid && in_array($invoice->status, ['paid'], true)) {
-            // Partial bKash payment: keep the invoice open.
+        } elseif (! $paid && $invoice->status === 'paid') {
+            // A partial online payment against an already “paid” invoice.
             $invoice->update(['status' => 'pending']);
         }
 
-        $subscription = $invoice->subscription;
+        return $paid;
+    }
 
-        if (isset($meta['tenant_addon_id']) && $paid) {
-            $addon = TenantAddon::query()->where('tenant_id', $intent->tenant_id)->find($meta['tenant_addon_id']);
-            if ($addon && $addon->status === 'pending_approval') {
-                $addon->update(['status' => 'active']);
-                \App\Services\SmsGateway::creditSmsAddon($addon);
-            }
+    private function recordSubscriptionEvent(TenantSubscription $subscription, string $trxID, bool $create, ?string $fromStatus, bool $planChanged, int $planId, string $cycle, float $price): void
+    {
+        if ($create) {
+            $event = 'subscription.created';
+        } elseif ($planChanged) {
+            $event = 'subscription.plan_changed';
+        } elseif ($fromStatus === 'pending_approval') {
+            $event = 'subscription.approved';
+        } elseif (in_array($fromStatus, ['past_due', 'suspended'], true)) {
+            $event = 'subscription.reactivated';
+        } else {
+            $event = 'subscription.renewed';
         }
 
-        if ($paid && $subscription && in_array($subscription->status, ['pending_approval', 'past_due', 'suspended'], true)) {
-            $fromStatus = $subscription->status;
-            $subscription->update(['status' => 'active']);
-            if ($subscription->tenant && $subscription->tenant->status === 'suspended') {
-                $subscription->tenant->update(['status' => 'active']);
-            }
-
-            TenantSubscriptionEvent::create([
-                'tenant_subscription_id' => $subscription->id,
-                'user_id' => null,
-                'event' => 'subscription.approved',
-                'from_status' => $fromStatus,
-                'to_status' => 'active',
-                'metadata' => ['source' => 'bkash_callback', 'trx_id' => $trxID],
-                'created_at' => now(),
-            ]);
-        }
+        TenantSubscriptionEvent::create([
+            'tenant_subscription_id' => $subscription->id,
+            'user_id' => null,
+            'event' => $event,
+            'from_status' => $fromStatus,
+            'to_status' => 'active',
+            'metadata' => [
+                'source' => 'bkash_callback',
+                'trx_id' => $trxID,
+                'plan_id' => $planId,
+                'billing_cycle' => $cycle,
+                'price' => $price,
+            ],
+            'created_at' => now(),
+        ]);
     }
 }

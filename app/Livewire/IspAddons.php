@@ -136,24 +136,25 @@ class IspAddons extends Component
             return '';
         }
 
-        // bKash is the only real-time gateway on the marketplace: the order stays
-        // pending and the add-on activates after the bKash payment callback.
-        $onlineBkash = ! $manual && ($method['provider'] ?? null) === 'bkash';
-        $needsApproval = $manual || $onlineBkash;
+        // bKash online: no order rows are written until bKash confirms the
+        // payment — a failed/cancelled attempt leaves no add-on, invoice or
+        // payment behind (see placeBkashAddonOrder).
+        if (! $manual && ($method['provider'] ?? null) === 'bkash') {
+            return $this->placeBkashAddonOrder($tenant, $addon);
+        }
 
+        // Bank transfer: a pending order is raised for the BeeCore team to verify.
         $recurring = in_array($addon->billing_cycle, ['monthly', 'yearly'], true);
         $start = today();
         $periodEnd = $addon->billing_cycle === 'yearly'
             ? $start->copy()->addYear()->subDay()
             : ($addon->billing_cycle === 'monthly' ? $start->copy()->addMonth()->subDay() : null);
 
-        $intent = null;
-
-        DB::transaction(function () use ($tenant, $addon, $method, $manual, $onlineBkash, $needsApproval, $subscription, $start, $periodEnd, $recurring, &$intent) {
+        DB::transaction(function () use ($tenant, $addon, $method, $subscription, $start, $periodEnd, $recurring) {
             $row = TenantAddon::create([
                 'tenant_id' => $tenant->id,
                 'addon_id' => $addon->id,
-                'status' => $needsApproval ? 'pending_approval' : 'active',
+                'status' => 'pending_approval',
                 'price' => $addon->price,
                 'billing_cycle' => $addon->billing_cycle,
                 'assigned_by' => auth()->id(),
@@ -163,25 +164,19 @@ class IspAddons extends Component
                 'auto_renew' => $recurring,
             ]);
 
-            // An SMS add-on that activates right away credits the tenant SMS wallet now;
-            // pending approvals credit it later when the payment is verified.
-            if (! $needsApproval) {
-                \App\Services\SmsGateway::creditSmsAddon($row);
-            }
-
-            $dueDate = $manual ? $start->copy()->addDays(7) : $start;
+            $dueDate = $start->copy()->addDays(7);
 
             $invoice = SaasInvoice::create([
                 'tenant_id' => $tenant->id,
                 'tenant_subscription_id' => $subscription->id,
                 'tenant_addon_id' => $row->id,
                 'invoice_number' => SaasInvoice::draftNumber(),
-                'status' => $needsApproval ? 'pending' : 'paid',
+                'status' => 'pending',
                 'period_start' => $start->toDateString(),
                 'period_end' => ($periodEnd ?? $start)->toDateString(),
                 'amount' => $addon->price,
                 'due_date' => $dueDate->toDateString(),
-                'paid_at' => $needsApproval ? null : now(),
+                'paid_at' => null,
             ]);
             $invoice->setSequentialNumber();
 
@@ -201,40 +196,50 @@ class IspAddons extends Component
                 'amount' => $addon->price,
                 'method' => $method['provider'] ?? 'manual',
                 'reference' => 'Add-on checkout — '.($method['name'] ?? 'BeeCore'),
-                'status' => $needsApproval ? 'pending' : 'completed',
-                'verified_at' => $needsApproval ? null : now(),
-                'verified_by' => $needsApproval ? null : auth()->id(),
+                'status' => 'pending',
+                'verified_at' => null,
+                'verified_by' => null,
                 'paid_at' => now(),
             ]);
 
-            AuditLog::record($needsApproval ? 'addon.purchase_pending' : 'addon.purchased', $row, ['addon_id' => $addon->id, 'amount' => $addon->price, 'cycle' => $addon->billing_cycle], tenantId: $tenant->id);
-
-            if ($onlineBkash) {
-                $meta = ['saas_invoice_id' => $invoice->id, 'tenant_addon_id' => $row->id];
-                $intent = BeePaymentIntent::findOpen(BeePaymentIntent::KIND_SAAS_ADDON, $tenant->id, ['saas_invoice_id' => $invoice->id])
-                    ?? BeePaymentIntent::createFor(BeePaymentIntent::KIND_SAAS_ADDON, $tenant->id, (float) $addon->price, $meta);
-            }
+            AuditLog::record('addon.purchase_pending', $row, ['addon_id' => $addon->id, 'amount' => $addon->price, 'cycle' => $addon->billing_cycle], tenantId: $tenant->id);
         });
 
         if ($this->getErrorBag()->isNotEmpty()) {
             return '';
         }
 
-        if ($onlineBkash && $intent) {
-            $this->beePayUrl = route('bee-pay.intent', ['intent' => $intent->token]);
+        return __('Order submitted. :addon becomes active once the BeeCore team verifies your payment.', ['addon' => $addon->name]);
+    }
 
+    /**
+     * Online bKash add-on checkout: the order rides inside the BeeCore payment
+     * intent and is materialised (add-on + paid invoice) only after bKash
+     * confirms the payment — a failed/cancelled attempt leaves no records.
+     */
+    private function placeBkashAddonOrder(Tenant $tenant, Addon $addon): string
+    {
+        $intent = null;
+
+        DB::transaction(function () use ($tenant, $addon, &$intent) {
+            $intent = BeePaymentIntent::findOpen(BeePaymentIntent::KIND_SAAS_ADDON, $tenant->id, [
+                'addon_id' => $addon->id,
+                'billing_cycle' => $addon->billing_cycle,
+            ])
+                ?? BeePaymentIntent::createFor(BeePaymentIntent::KIND_SAAS_ADDON, $tenant->id, (float) $addon->price, [
+                    'deferred' => true,
+                    'addon_id' => $addon->id,
+                    'billing_cycle' => $addon->billing_cycle,
+                ]);
+        });
+
+        if ($this->getErrorBag()->isNotEmpty()) {
             return '';
         }
 
-        if ($manual) {
-            return __('Order submitted. :addon becomes active once the BeeCore team verifies your payment.', ['addon' => $addon->name]);
-        }
+        $this->beePayUrl = route('bee-pay.intent', ['intent' => $intent->token]);
 
-        if ($recurring) {
-            return __('Payment successful — :addon is active. It renews automatically with your BeeCore subscription.', ['addon' => $addon->name]);
-        }
-
-        return __('Payment successful — :addon is now active.', ['addon' => $addon->name]);
+        return '';
     }
 
     private function hasOpenAddon(int $addonId): bool
