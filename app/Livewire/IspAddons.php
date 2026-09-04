@@ -9,8 +9,10 @@ use App\Models\PaymentGateway;
 use App\Models\SaasInvoice;
 use App\Models\SaasInvoiceItem;
 use App\Models\SaasPayment;
+use App\Models\SmsLog;
 use App\Models\Tenant;
 use App\Models\TenantAddon;
+use App\Models\TenantSmsBalance;
 use App\Models\TenantSubscription;
 use App\Models\User;
 use App\Support\AuthorizesRoles;
@@ -28,6 +30,8 @@ class IspAddons extends Component
 
     public string $categoryFilter = '';
 
+    public string $tab = 'store'; // store | my
+
     public ?int $checkoutAddonId = null;
 
     public string $checkoutGateway = '';
@@ -37,6 +41,13 @@ class IspAddons extends Component
     public function boot(): void
     {
         $this->authorizeRoles(User::ROLE_SUPER_ADMIN, User::ROLE_TENANT_ADMIN);
+    }
+
+    public function setTab(string $tab): void
+    {
+        abort_unless(in_array($tab, ['store', 'my'], true), 422);
+
+        $this->tab = $tab;
     }
 
     private function tenantId(): int
@@ -328,6 +339,24 @@ class IspAddons extends Component
             ? Addon::query()->where('is_active', true)->whereNull('archived_at')->find($this->checkoutAddonId)
             : null;
 
+        // Live SMS position: credits bought across active SMS add-ons vs the
+        // wallet that every SMS send draws from, plus real usage from the log.
+        $activeSms = $mine->where('status', 'active')->filter(fn ($row) => $row->addon?->category === 'sms');
+        $smsIncluded = (int) $activeSms->sum(fn ($row) => (int) ($row->addon->usage_limit ?? 0));
+        $smsRemaining = (int) (TenantSmsBalance::query()->where('tenant_id', $tenantId)->value('balance') ?? 0);
+        $smsSent = (int) SmsLog::query()->where('tenant_id', $tenantId)->where('status', 'sent')->count();
+
+        $smsSummary = [
+            'count' => $activeSms->count(),
+            'included' => $smsIncluded,
+            'remaining' => $smsRemaining,
+            'sent' => $smsSent,
+            // A tenant who never spends accumulates a rollover, so "used" can
+            // never exceed the purchased pool (nor drop below zero).
+            'used' => $smsIncluded > 0 ? max(0, min($smsIncluded, $smsIncluded - $smsRemaining)) : 0,
+            'pctLeft' => $smsIncluded > 0 ? min(100, max(0, (int) round($smsRemaining / $smsIncluded * 100))) : 0,
+        ];
+
         return view('livewire.isp-addons', [
             'workspace' => Tenant::query()->find($tenantId),
             'catalog' => $catalog,
@@ -337,6 +366,7 @@ class IspAddons extends Component
             'categories' => AddOns::CATEGORIES,
             'paymentMethods' => $this->paymentMethods(),
             'checkoutAddon' => $checkoutAddon,
+            'smsSummary' => $smsSummary,
             'summary' => [
                 'active' => $mine->where('status', 'active')->count(),
                 'pending' => $mine->whereIn('status', ['requested', 'pending_approval'])->count(),

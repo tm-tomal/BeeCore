@@ -150,7 +150,7 @@ class MyProfile extends Component
             'currentSessionId' => $currentId,
             'loginHistory' => LoginAttempt::where('email', $user->email)->latest('id')->limit(10)->get(),
             'workspace' => $workspace,
-            'roleLabel' => ucwords(str_replace('_', ' ', $user->role)),
+            'roleLabel' => \App\Models\User::roleLabel($user->role),
         ]);
     }
 }

@@ -277,6 +277,10 @@
                     <p class="mt-4 rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-theme-sm text-gray-600 dark:border-gray-800 dark:bg-white/[0.03] dark:text-gray-300">{{ $detailIssue->description }}</p>
                 @endif
 
+                @if($detailIssue->attachments->isNotEmpty())
+                    <x-attachment-gallery :attachments="$detailIssue->attachments" />
+                @endif
+
                 <div class="mt-5 flex flex-wrap items-center justify-between gap-3 border-t border-gray-100 pt-4 dark:border-gray-800">
                     <span class="text-theme-xs font-medium uppercase tracking-wide text-gray-400">{{ __('Update status') }}</span>
                     <div class="flex flex-wrap items-center gap-2">

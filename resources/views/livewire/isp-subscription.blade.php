@@ -40,6 +40,24 @@
         </div>
     @endif
 
+    @if(! $checkout)
+        <!-- Clean sub-navigation: one focused view at a time -->
+        <div class="inline-flex flex-wrap items-center gap-1 rounded-xl border border-gray-200 bg-white p-1 shadow-theme-xs dark:border-gray-800 dark:bg-white/[0.03]" role="tablist" aria-label="{{ __('Subscription views') }}">
+            <button type="button" role="tab" wire:click="setTab('overview')" class="inline-flex items-center gap-2 rounded-lg px-4 py-2 text-theme-sm font-medium transition {{ $tab === 'overview' ? 'bg-brand-500 text-white shadow-theme-xs' : 'text-gray-500 hover:bg-gray-100 hover:text-gray-800 dark:text-gray-400 dark:hover:bg-white/[0.03] dark:hover:text-gray-200' }}">
+                <svg class="size-4 stroke-current" viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>
+                {{ __('My plan') }}
+            </button>
+            <button type="button" role="tab" wire:click="setTab('plans')" class="inline-flex items-center gap-2 rounded-lg px-4 py-2 text-theme-sm font-medium transition {{ $tab === 'plans' ? 'bg-brand-500 text-white shadow-theme-xs' : 'text-gray-500 hover:bg-gray-100 hover:text-gray-800 dark:text-gray-400 dark:hover:bg-white/[0.03] dark:hover:text-gray-200' }}">
+                <svg class="size-4 stroke-current" viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></svg>
+                {{ __('Plans & packages') }}
+            </button>
+            <button type="button" role="tab" wire:click="setTab('invoices')" class="inline-flex items-center gap-2 rounded-lg px-4 py-2 text-theme-sm font-medium transition {{ $tab === 'invoices' ? 'bg-brand-500 text-white shadow-theme-xs' : 'text-gray-500 hover:bg-gray-100 hover:text-gray-800 dark:text-gray-400 dark:hover:bg-white/[0.03] dark:hover:text-gray-200' }}">
+                <svg class="size-4 stroke-current" viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2h12a2 2 0 0 1 2 2v16l-4-2-4 2-4-2-4 2V4a2 2 0 0 1 2-2z"/><line x1="9" y1="9" x2="15" y2="9"/><line x1="9" y1="13" x2="15" y2="13"/></svg>
+                {{ __('Invoices') }}
+            </button>
+        </div>
+    @endif
+
     @if($checkout && $selectedPlan)
         @php
             $checkPlan = $selectedPlan;
@@ -260,6 +278,7 @@
             </div>
         </section>
     @else
+    @if($tab === 'overview')
     <!-- Plain-language status strip: tells the user exactly what happens next -->
     @if(! $sub)
         <section class="overflow-hidden rounded-2xl border border-brand-100 bg-gradient-to-br from-brand-50 via-white to-white p-5 sm:p-6 dark:border-brand-500/20 dark:from-brand-500/[0.07] dark:via-white/[0.02] dark:to-white/[0.02]">
@@ -273,10 +292,10 @@
                         <p class="mt-1 max-w-2xl text-theme-sm leading-5 text-gray-500 dark:text-gray-400">{{ __('Pick one of the plans below. Every BeeCore feature is included on every plan — plans only change how many customers, staff and resellers you can manage.') }}</p>
                     </div>
                 </div>
-                <a href="#plan-catalogue" class="inline-flex shrink-0 items-center justify-center gap-2 self-start rounded-lg bg-brand-500 px-5 py-2.5 text-theme-sm font-medium text-white shadow-theme-xs transition hover:bg-brand-600 lg:self-center">
+                <button type="button" wire:click="setTab('plans')" class="inline-flex shrink-0 items-center justify-center gap-2 self-start rounded-lg bg-brand-500 px-5 py-2.5 text-theme-sm font-medium text-white shadow-theme-xs transition hover:bg-brand-600 lg:self-center">
                     {{ __('Choose your plan') }}
                     <svg class="size-4 stroke-current" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
-                </a>
+                </button>
             </div>
         </section>
     @elseif($subStatus === 'pending_approval')
@@ -369,10 +388,10 @@
                         <p class="mt-1 max-w-2xl text-theme-sm leading-5 text-gray-600 dark:text-gray-300">{{ __('Pick a plan below to start again. Your workspace data is safe — a new subscription simply switches the lights back on.') }}</p>
                     </div>
                 </div>
-                <a href="#plan-catalogue" class="inline-flex shrink-0 items-center justify-center gap-2 self-start rounded-lg bg-brand-500 px-5 py-2.5 text-theme-sm font-medium text-white shadow-theme-xs transition hover:bg-brand-600 sm:self-center">
+                <button type="button" wire:click="setTab('plans')" class="inline-flex shrink-0 items-center justify-center gap-2 self-start rounded-lg bg-brand-500 px-5 py-2.5 text-theme-sm font-medium text-white shadow-theme-xs transition hover:bg-brand-600 sm:self-center">
                     {{ __('Choose a plan') }}
                     <svg class="size-4 stroke-current" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
-                </a>
+                </button>
             </div>
         </section>
     @elseif($subStatus === 'active' && $payable)
@@ -497,6 +516,8 @@
         </section>
     @endif
 
+    @endif
+    @if($tab === 'plans')
     <!-- Plan catalogue -->
     @if($canPickPlans)
         <section id="plan-catalogue" class="scroll-mt-6 rounded-2xl border border-gray-200 bg-white p-5 shadow-theme-xs dark:border-gray-800 dark:bg-white/[0.03] sm:p-6">
@@ -657,6 +678,8 @@
     @elseif($subStatus === 'pending_approval' || $subStatus === 'past_due' || $subStatus === 'suspended')
         <p class="text-theme-xs text-gray-400 dark:text-gray-500">{{ __('Plan changes become available again as soon as your account is active.') }}</p>
     @endif
+    @endif
+    @if($tab === 'invoices')
 
     <!-- BeeCore invoices -->
     @if($showHistory)
@@ -745,6 +768,12 @@
                 </tbody>
             </table>
         </x-table>
+    @else
+        <section class="rounded-2xl border border-dashed border-gray-300 px-6 py-12 text-center dark:border-gray-700">
+            <p class="text-theme-sm font-medium text-gray-600 dark:text-gray-300">{{ __('No BeeCore invoices yet.') }}</p>
+            <p class="mt-1 text-theme-xs text-gray-500 dark:text-gray-400">{{ __('Once your subscription is active your BeeCore invoices will appear here.') }}</p>
+        </section>
+    @endif
     @endif
     @endif
 </div>

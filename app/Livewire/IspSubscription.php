@@ -29,6 +29,8 @@ class IspSubscription extends Component
     public ?int $selectedPlanId = null;
     public string $billingCycle = 'monthly';
 
+    public string $tab = 'overview'; // overview | plans | invoices
+
     public bool $checkoutActive = false;
     public string $checkoutGateway = '';
 
@@ -37,6 +39,14 @@ class IspSubscription extends Component
     public function boot(): void
     {
         $this->authorizeRoles(User::ROLE_SUPER_ADMIN, User::ROLE_TENANT_ADMIN);
+    }
+
+    public function setTab(string $tab): void
+    {
+        abort_unless(in_array($tab, ['overview', 'plans', 'invoices'], true), 422);
+
+        $this->tab = $tab;
+        $this->resetPage();
     }
 
     public function openCheckout(int $planId): void

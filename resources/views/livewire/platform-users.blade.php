@@ -70,7 +70,7 @@
                                     </div>
                                 </div>
                             </td>
-                            <td class="px-5 py-4"><span class="inline-flex rounded-full px-2.5 py-1 text-theme-xs font-medium capitalize {{ $roleChip($user->role) }}">{{ str_replace('_', ' ', $user->role) }}</span></td>
+                            <td class="px-5 py-4"><span class="inline-flex rounded-full px-2.5 py-1 text-theme-xs font-medium capitalize {{ $roleChip($user->role) }}">{{ \App\Models\User::roleLabel($user->role) }}</span></td>
                             <td class="px-5 py-4 text-theme-sm text-gray-600 dark:text-gray-400">{{ $user->tenant?->name ?? 'BeeCore platform' }}</td>
                             <td class="px-5 py-4 text-center">
                                 @if($user->status === 'active')
@@ -160,7 +160,7 @@
                             <label for="user-role" class="mb-1.5 block text-theme-sm font-medium text-gray-700 dark:text-gray-400">Role</label>
                             <select id="user-role" wire:model.live="role" class="h-11 w-full appearance-none rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-theme-sm text-gray-800 shadow-theme-xs focus:border-brand-300 focus:ring-3 focus:ring-brand-500/10 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:focus:border-brand-800">
                                 <option value="super_admin">Super Admin</option>
-                                <option value="tenant_admin">Tenant Admin</option>
+                                <option value="tenant_admin">ISP Admin</option>
                                 <option value="finance">Finance</option>
                                 <option value="support">Support</option>
                                 <option value="network_engineer">Network Engineer</option>

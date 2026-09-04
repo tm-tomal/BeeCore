@@ -256,6 +256,8 @@
                                     default => 'bg-gray-100 text-gray-500 dark:bg-white/[0.05] dark:text-gray-400',
                                 };
                                 $pct = $assignment->addon->usage_limit ? min(100, (int) round($assignment->usage_used / $assignment->addon->usage_limit * 100)) : null;
+                                $smsWallet = $assignment->addon->category === 'sms' ? ($smsWalletByTenant[$assignment->tenant_id] ?? null) : null;
+                                $smsPct = $smsWallet && ($smsWallet['included'] ?? 0) > 0 ? min(100, (int) round($smsWallet['used'] / $smsWallet['included'] * 100)) : 0;
                             @endphp
                             <tr class="transition-colors hover:bg-gray-50/70 dark:hover:bg-white/[0.02]">
                                 <td class="px-5 py-4">
@@ -273,7 +275,18 @@
                                     <span class="block text-theme-xs text-gray-400 dark:text-gray-500">/ {{ $cycleLabel($assignment->billing_cycle) }}</span>
                                 </td>
                                 <td class="px-5 py-4">
-                                    @if($pct !== null)
+                                    @if($smsWallet && ($smsWallet['included'] ?? 0) > 0)
+                                        <div class="max-w-44">
+                                            <div class="flex items-center justify-between gap-2 text-theme-xs">
+                                                <span class="font-semibold text-gray-800 dark:text-white/90">{{ number_format($smsWallet['remaining']) }} {{ $assignment->addon->usage_unit ?: 'credits' }} left</span>
+                                                <span class="text-gray-500 dark:text-gray-400">{{ $smsPct }}% used</span>
+                                            </div>
+                                            <div class="mt-1 h-1.5 overflow-hidden rounded-full bg-gray-100 dark:bg-white/[0.06]">
+                                                <div class="h-full rounded-full {{ $smsPct >= 90 ? 'bg-error-500' : 'bg-brand-500' }}" style="width: {{ $smsPct }}%"></div>
+                                            </div>
+                                            <p class="mt-1 text-theme-xs text-gray-400 dark:text-gray-500">{{ number_format($smsWallet['used']) }} of {{ number_format($smsWallet['included']) }} {{ $assignment->addon->usage_unit ?: 'credits' }} used</p>
+                                        </div>
+                                    @elseif($pct !== null)
                                         <div class="max-w-40">
                                             <div class="flex items-center justify-between gap-2 text-theme-xs">
                                                 <span class="text-gray-500 dark:text-gray-400">{{ number_format($assignment->usage_used) }} / {{ number_format($assignment->addon->usage_limit) }} {{ $assignment->addon->usage_unit }}</span>
@@ -301,10 +314,12 @@
                                                 {{ __('Decline') }}
                                             </button>
                                         @elseif($assignment->status === 'active')
-                                            <button type="button" wire:click="openUsage({{ $assignment->id }})" title="Log usage" class="inline-flex items-center justify-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3 py-2 text-theme-xs font-medium text-gray-700 transition hover:border-brand-300 hover:bg-brand-50 hover:text-brand-600 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 dark:hover:border-brand-500/40 dark:hover:bg-brand-500/10 dark:hover:text-brand-400">
-                                                <svg class="size-3.5 stroke-current" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>
-                                                Usage
-                                            </button>
+                                            @if(! $smsWallet)
+                                                <button type="button" wire:click="openUsage({{ $assignment->id }})" title="Log usage" class="inline-flex items-center justify-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3 py-2 text-theme-xs font-medium text-gray-700 transition hover:border-brand-300 hover:bg-brand-50 hover:text-brand-600 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 dark:hover:border-brand-500/40 dark:hover:bg-brand-500/10 dark:hover:text-brand-400">
+                                                    <svg class="size-3.5 stroke-current" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>
+                                                    Usage
+                                                </button>
+                                            @endif
                                             <button type="button" wire:click="cancelAssignment({{ $assignment->id }})" wire:confirm="Cancel this add-on assignment?" title="Cancel assignment" class="grid h-8 w-8 place-items-center rounded-lg border border-error-200 bg-error-50 text-error-600 transition hover:border-error-300 hover:bg-error-100 hover:text-error-700 dark:border-error-500/25 dark:bg-error-500/10 dark:text-error-400 dark:hover:border-error-500/40 dark:hover:bg-error-500/15 dark:hover:text-error-300">
                                                 <svg class="size-4 stroke-current" viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
                                             </button>

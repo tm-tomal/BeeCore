@@ -137,6 +137,10 @@ class SupportTickets extends Component
         AuditLog::record('support_ticket.replied', $ticket, tenantId: $ticket->tenant_id);
         $this->replyMessage = '';
         session()->flash('message', 'Reply posted.');
+
+        // Ensure the composer really empties on screen (a Livewire morph can
+        // otherwise leave the typed text inside a deferred textarea).
+        $this->js('const el = document.getElementById("reply-message"); if (el) el.value = "";');
     }
 
     public function updatedStatusFilter(): void
@@ -166,7 +170,7 @@ class SupportTickets extends Component
             'tenants' => Tenant::query()->whereNull('archived_at')->orderBy('name')->get(),
             'agents' => User::query()->whereIn('role', [User::ROLE_SUPPORT, User::ROLE_SUPER_ADMIN])->where('status', 'active')->orderBy('name')->get(),
             'detailTicket' => $this->detailTicketId
-                ? SupportTicket::with(['tenant', 'assignee', 'replies.user'])->find($this->detailTicketId)
+                ? SupportTicket::with(['tenant', 'assignee', 'replies.user', 'attachments', 'replies.attachments'])->find($this->detailTicketId)
                 : null,
             'performance' => [
                 'open' => (clone $ticketsQuery)->whereNotIn('status', ['resolved', 'closed'])->count(),

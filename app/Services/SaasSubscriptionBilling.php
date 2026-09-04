@@ -188,6 +188,10 @@ class SaasSubscriptionBilling
 
                 $addon->update(['period_start' => $periodStart, 'period_end' => $periodEnd]);
 
+                // Recurring SMS add-ons top the tenant wallet back up for the
+                // renewed period (the same credits as on the original purchase).
+                \App\Services\SmsGateway::creditSmsAddon($addon);
+
                 AuditLog::record('addon.renewed', $addon, ['amount' => $addon->price, 'period_start' => $periodStart->toDateString()], tenantId: $addon->tenant_id);
                 $renewed++;
             });

@@ -6,6 +6,7 @@ use App\Models\Addon;
 use App\Models\AuditLog;
 use App\Models\Tenant;
 use App\Models\TenantAddon;
+use App\Models\TenantSmsBalance;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Livewire\Attributes\Layout;
@@ -53,7 +54,12 @@ class AddOns extends Component
             'description' => ['nullable', 'string', 'max:1000'],
             'price' => ['required', 'numeric', 'min:0'],
             'billingCycle' => ['required', Rule::in(['one_time', 'monthly', 'yearly'])],
-            'usageLimit' => ['nullable', 'integer', 'min:1'],
+            // SMS packages sell wallet credits — an SMS add-on without a
+            // usage limit would activate without adding any SMS to the wallet.
+            'usageLimit' => array_merge(
+                $this->category === 'sms' ? ['required'] : ['nullable'],
+                ['integer', 'min:1'],
+            ),
             'usageUnit' => ['nullable', 'string', 'max:50'],
         ];
     }
@@ -235,12 +241,35 @@ class AddOns extends Component
 
         $addons = Addon::query()->whereNull('archived_at')->withCount(['tenantAddons as active_assignments' => fn ($q) => $q->where('status', 'active')])->orderBy('name')->get();
 
+        // Live SMS wallet position per tenant so SMS assignments show the real
+        // remaining/used credits instead of the (never bumped) usage counter.
+        $smsRows = TenantAddon::query()
+            ->where('status', 'active')
+            ->whereHas('addon', fn ($q) => $q->where('category', 'sms'))
+            ->with('addon')
+            ->get();
+
+        $smsWalletByTenant = $smsRows
+            ->groupBy('tenant_id')
+            ->map(function ($rows, $tenantId) {
+                $included = (int) $rows->sum(fn ($row) => (int) ($row->addon->usage_limit ?? 0));
+                $remaining = (int) (TenantSmsBalance::query()->where('tenant_id', $tenantId)->value('balance') ?? 0);
+
+                return [
+                    'included' => $included,
+                    'remaining' => $remaining,
+                    'used' => max(0, $included - $remaining),
+                ];
+            })
+            ->all();
+
         return view('livewire.add-ons', [
             'addons' => $addons,
             'assignments' => TenantAddon::query()->with(['tenant', 'addon'])->latest()->limit(50)->get(),
             'activeAddons' => Addon::query()->where('is_active', true)->whereNull('archived_at')->orderBy('name')->get(),
             'tenants' => Tenant::query()->whereNull('archived_at')->orderBy('name')->get(),
             'revenueByAddon' => TenantAddon::query()->where('status', 'active')->selectRaw('addon_id, sum(price) as total, count(*) as count')->groupBy('addon_id')->get()->keyBy('addon_id'),
+            'smsWalletByTenant' => $smsWalletByTenant,
             'stats' => [
                 'catalog' => $addons->count(),
                 'active_catalog' => $addons->where('is_active', true)->count(),

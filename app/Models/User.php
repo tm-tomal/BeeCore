@@ -36,6 +36,22 @@ class User extends Authenticatable
     }
 
     /**
+     * Human-facing role name. ISP tenants call the tenant_admin role "ISP
+     * Admin" (BeeCore staff are "BeeCore Admins").
+     */
+    public static function roleLabel(string $role): string
+    {
+        return [
+            self::ROLE_SUPER_ADMIN => 'BeeCore Admin',
+            self::ROLE_TENANT_ADMIN => 'ISP Admin',
+            self::ROLE_FINANCE => 'Finance',
+            self::ROLE_SUPPORT => 'Support',
+            self::ROLE_NETWORK_ENGINEER => 'Network Engineer',
+            self::ROLE_RESELLER => 'Reseller',
+        ][$role] ?? ucwords(str_replace('_', ' ', $role));
+    }
+
+    /**
      * Get the attributes that should be cast.
      *
      * @return array<string, string>

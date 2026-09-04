@@ -82,4 +82,63 @@ class AddOnsConsoleTest extends TestCase
 
         $this->assertDatabaseHas('tenant_addons', ['id' => $assignment->id, 'status' => 'cancelled']);
     }
+
+    public function test_sms_addon_cannot_be_created_without_credit_allowance(): void
+    {
+        $admin = User::factory()->create();
+
+        Livewire::actingAs($admin)->test(AddOns::class)
+            ->call('create')
+            ->set('name', 'SMS without credits')
+            ->set('slug', 'sms-without-credits')
+            ->set('category', 'sms')
+            ->set('price', 500)
+            ->set('billingCycle', 'monthly')
+            ->call('save')
+            ->assertHasErrors('usageLimit');
+
+        $this->assertDatabaseMissing('addons', ['slug' => 'sms-without-credits']);
+    }
+
+    public function test_assigning_an_sms_addon_credits_the_tenant_wallet(): void
+    {
+        $admin = User::factory()->create();
+        $tenant = $this->tenant();
+        $addon = Addon::create([
+            'name' => 'SMS Booster 5k', 'slug' => 'sms-booster-5k-'.uniqid(), 'category' => 'sms',
+            'price' => 500, 'billing_cycle' => 'monthly', 'usage_limit' => 5000, 'usage_unit' => 'SMS', 'is_active' => true,
+        ]);
+
+        Livewire::actingAs($admin)->test(AddOns::class)
+            ->set('tab', 'assignments')
+            ->set('assignTenantId', $tenant->id)
+            ->set('assignAddonId', $addon->id)
+            ->set('assignBillingCycle', 'monthly')
+            ->call('assignAddon')
+            ->assertHasNoErrors();
+
+        $this->assertDatabaseHas('tenant_addons', ['tenant_id' => $tenant->id, 'addon_id' => $addon->id, 'status' => 'active']);
+        $this->assertDatabaseHas('tenant_sms_balances', ['tenant_id' => $tenant->id, 'balance' => 5000]);
+    }
+
+    public function test_approving_a_pending_sms_request_credits_the_wallet(): void
+    {
+        $admin = User::factory()->create();
+        $tenant = $this->tenant();
+        $addon = Addon::create([
+            'name' => 'SMS Booster 2k', 'slug' => 'sms-booster-2k-'.uniqid(), 'category' => 'sms',
+            'price' => 250, 'billing_cycle' => 'monthly', 'usage_limit' => 2000, 'usage_unit' => 'SMS', 'is_active' => true,
+        ]);
+        $assignment = TenantAddon::create([
+            'tenant_id' => $tenant->id, 'addon_id' => $addon->id, 'status' => 'requested',
+            'price' => 250, 'billing_cycle' => 'monthly', 'starts_at' => now(),
+        ]);
+
+        Livewire::actingAs($admin)->test(AddOns::class)
+            ->call('approveRequest', $assignment->id)
+            ->assertHasNoErrors();
+
+        $this->assertSame('active', $assignment->fresh()->status);
+        $this->assertDatabaseHas('tenant_sms_balances', ['tenant_id' => $tenant->id, 'balance' => 2000]);
+    }
 }

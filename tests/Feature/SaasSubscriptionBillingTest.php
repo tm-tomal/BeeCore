@@ -162,7 +162,7 @@ class SaasSubscriptionBillingTest extends TestCase
 
         $addon = \App\Models\Addon::create([
             'name' => 'SMS Pack', 'slug' => 'sms-pack-'.uniqid(), 'category' => 'sms',
-            'price' => 500, 'billing_cycle' => 'monthly', 'is_active' => true,
+            'price' => 500, 'billing_cycle' => 'monthly', 'usage_limit' => 1000, 'usage_unit' => 'SMS', 'is_active' => true,
         ]);
         $tenantAddon = \App\Models\TenantAddon::create([
             'tenant_id' => $tenant->id,
@@ -186,6 +186,9 @@ class SaasSubscriptionBillingTest extends TestCase
         $fresh = $tenantAddon->fresh();
         $this->assertSame($invoice->period_start->toDateString(), $fresh->period_start->toDateString());
         $this->assertSame($invoice->period_end->toDateString(), $fresh->period_end->toDateString());
+
+        // A recurring SMS add-on tops the tenant wallet back up for the next period.
+        $this->assertDatabaseHas('tenant_sms_balances', ['tenant_id' => $tenant->id, 'balance' => 1000]);
     }
 
     private function plan(): SaasPlan

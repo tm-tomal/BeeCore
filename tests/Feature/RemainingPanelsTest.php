@@ -473,4 +473,81 @@ class RemainingPanelsTest extends TestCase {
             ->assertSee('Summary')
             ->assertSee('Print / Save as PDF');
     }
+
+    public function test_marketplace_shows_the_live_sms_wallet_to_the_owner(): void
+    {
+        $tenant = Tenant::create(['name' => 'WalletCo', 'slug' => 'walletco-'.uniqid(), 'status' => 'active', 'currency' => 'BDT', 'timezone' => 'UTC']);
+        $owner = User::factory()->create(['tenant_id' => $tenant->id, 'role' => User::ROLE_TENANT_ADMIN]);
+
+        $addon = \App\Models\Addon::create([
+            'name' => 'SMS Booster 1k', 'slug' => 'sms-booster-1k-'.uniqid(), 'category' => 'sms',
+            'description' => 'Extra SMS credits', 'price' => 300, 'billing_cycle' => 'monthly',
+            'usage_limit' => 1000, 'usage_unit' => 'SMS', 'is_active' => true,
+        ]);
+        \App\Models\TenantAddon::create([
+            'tenant_id' => $tenant->id, 'addon_id' => $addon->id, 'status' => 'active',
+            'price' => 300, 'billing_cycle' => 'monthly', 'starts_at' => now(), 'auto_renew' => true,
+        ]);
+        \App\Models\TenantSmsBalance::create(['tenant_id' => $tenant->id, 'balance' => 700]);
+        \App\Models\SmsLog::create([
+            'tenant_id' => $tenant->id, 'recipient' => '8801711111111', 'message' => 'Due notice',
+            'status' => 'sent', 'cost' => 0.35, 'created_at' => now(),
+        ]);
+
+        Livewire::actingAs($owner)
+            ->test(\App\Livewire\IspAddons::class)
+            ->call('setTab', 'my')
+            ->assertSet('tab', 'my')
+            ->assertSee('SMS wallet')
+            ->assertSee('credits left')
+            ->assertSee('700')
+            ->assertSee('Sent so far')
+            ->assertSee('active package');
+    }
+
+    public function test_subscription_invoices_live_in_their_own_tab(): void
+    {
+        $tenant = Tenant::create(['name' => 'SubTabCo', 'slug' => 'subtabco-'.uniqid(), 'status' => 'active', 'currency' => 'BDT', 'timezone' => 'UTC', 'operation_mode' => 'automatic']);
+        $admin = User::factory()->create(['tenant_id' => $tenant->id, 'role' => User::ROLE_TENANT_ADMIN]);
+
+        $plan = SaasPlan::create([
+            'name' => 'Starter', 'slug' => 'subtab-plan-'.uniqid(), 'monthly_price' => 1000, 'yearly_price' => 10000,
+            'customer_limit' => 300, 'grace_days' => 7, 'is_active' => true, 'operation_mode' => 'automatic',
+        ]);
+        $subscription = TenantSubscription::create([
+            'tenant_id' => $tenant->id, 'saas_plan_id' => $plan->id, 'status' => 'active',
+            'billing_cycle' => 'monthly', 'price' => 1000, 'starts_at' => today()->subMonth(),
+            'current_period_ends_at' => today()->addMonth(), 'auto_renew' => true,
+        ]);
+
+        $invoice = app(\App\Services\SaasSubscriptionBilling::class)->createInvoiceForPeriod(
+            $subscription, today()->subMonth(), today()->addMonth()->subDay(), today()
+        );
+
+        Livewire::actingAs($admin)
+            ->test(\App\Livewire\IspSubscription::class)
+            ->assertSet('tab', 'overview')
+            ->call('setTab', 'invoices')
+            ->assertSet('tab', 'invoices')
+            ->assertSee($invoice->invoice_number)
+            ->call('setTab', 'plans')
+            ->assertSet('tab', 'plans')
+            ->assertDontSee($invoice->invoice_number);
+    }
+
+    public function test_report_range_presets_update_the_period(): void
+    {
+        $tenant = Tenant::create(['name' => 'ReportCo', 'slug' => 'reportco-'.uniqid(), 'status' => 'active', 'currency' => 'BDT', 'timezone' => 'UTC']);
+        $admin = User::factory()->create(['tenant_id' => $tenant->id, 'role' => User::ROLE_TENANT_ADMIN]);
+        $now = now();
+
+        Livewire::actingAs($admin)
+            ->test(\App\Livewire\Reports::class)
+            ->call('setRange', 'last_month')
+            ->assertSet('from', $now->copy()->subMonthNoOverflow()->startOfMonth()->toDateString())
+            ->assertSet('to', $now->copy()->subMonthNoOverflow()->endOfMonth()->toDateString())
+            ->call('setRange', '30d')
+            ->assertSet('from', $now->copy()->subDays(29)->startOfDay()->toDateString())
+            ->assertSet('to', $now->copy()->endOfDay()->toDateString());
+    }
 }

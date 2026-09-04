@@ -271,6 +271,9 @@
                 </div>
 
                 <p class="mt-5 rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-theme-sm leading-relaxed text-gray-600 dark:border-gray-800 dark:bg-white/[0.03] dark:text-gray-300">{{ $detailTicket->description }}</p>
+                @if($detailTicket->attachments->isNotEmpty())
+                    <x-attachment-gallery :attachments="$detailTicket->attachments" />
+                @endif
                 @if($detailTicket->sla_due_at)
                     <p class="mt-3 inline-flex items-center gap-1.5 rounded-full bg-warning-50 px-2.5 py-1 text-theme-xs font-semibold text-warning-600 dark:bg-warning-500/15 dark:text-warning-400">
                         <svg class="size-3.5 stroke-current" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
@@ -287,6 +290,9 @@
                                 <span class="text-theme-xs text-gray-400 dark:text-gray-500">{{ $reply->created_at->format('d M Y, H:i') }}</span>
                             </div>
                             <p class="mt-1.5 text-theme-sm leading-relaxed text-gray-600 dark:text-gray-400">{{ $reply->message }}</p>
+                            @if($reply->attachments->isNotEmpty())
+                                <x-attachment-gallery :attachments="$reply->attachments" />
+                            @endif
                         </div>
                     @empty
                         <div class="py-6 text-center text-theme-sm text-gray-500 dark:text-gray-400">No replies yet.</div>
@@ -294,7 +300,7 @@
                 </div>
 
                 <form wire:submit="reply" class="mt-5 space-y-3 border-t border-gray-100 pt-5 dark:border-gray-800">
-                    <textarea wire:model="replyMessage" rows="3" placeholder="Write a reply..." class="w-full rounded-lg border border-gray-300 bg-transparent px-4 py-3 text-theme-sm text-gray-800 shadow-theme-xs placeholder:text-gray-400 focus:border-brand-300 focus:ring-3 focus:ring-brand-500/10 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30 dark:focus:border-brand-800"></textarea>
+                    <textarea id="reply-message" wire:model="replyMessage" rows="3" placeholder="Write a reply..." class="w-full rounded-lg border border-gray-300 bg-transparent px-4 py-3 text-theme-sm text-gray-800 shadow-theme-xs placeholder:text-gray-400 focus:border-brand-300 focus:ring-3 focus:ring-brand-500/10 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30 dark:focus:border-brand-800"></textarea>
                     @error('replyMessage') <p class="text-theme-xs text-error-600 dark:text-error-400">{{ $message }}</p> @enderror
                     <div class="flex items-center justify-end gap-3">
                         <button type="button" wire:click="closeDetail" class="inline-flex min-h-10 items-center justify-center gap-2 rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-theme-sm font-medium text-gray-700 shadow-theme-xs transition hover:bg-gray-50 hover:text-gray-800 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-white/[0.03] dark:hover:text-gray-200">Close</button>

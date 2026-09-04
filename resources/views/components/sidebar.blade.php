@@ -39,6 +39,12 @@
         'server' => '<rect x="2" y="2" width="20" height="8" rx="2"/><rect x="2" y="14" width="20" height="8" rx="2"/><line x1="6" y1="6" x2="6.01" y2="6"/><line x1="6" y1="18" x2="6.01" y2="18"/>',
         'share' => '<circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/>',
         'receipt' => '<path d="M6 2h12a2 2 0 0 1 2 2v16l-4-2-4 2-4-2-4 2V4a2 2 0 0 1 2-2z"/><line x1="9" y1="9" x2="15" y2="9"/><line x1="9" y1="13" x2="15" y2="13"/>',
+        'wifi' => '<path d="M5 12.55a11 11 0 0 1 14.08 0"/><path d="M1.42 9a16 16 0 0 1 21.16 0"/><path d="M8.53 16.11a6 6 0 0 1 6.95 0"/><line x1="12" y1="20" x2="12.01" y2="20"/>',
+        'map' => '<polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6"/><line x1="8" y1="2" x2="8" y2="18"/><line x1="16" y1="6" x2="16" y2="22"/>',
+        'flag' => '<path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><line x1="4" y1="22" x2="4" y2="15"/>',
+        'user-plus' => '<path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="8.5" cy="7" r="4"/><line x1="20" y1="8" x2="20" y2="14"/><line x1="23" y1="11" x2="17" y2="11"/>',
+        'shopping-bag' => '<path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 0 1-8 0"/>',
+        'settings' => '<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/>',
     ];
     $iconFor = fn (string $key): string => $icons[$key] ?? '<circle cx="12" cy="12" r="3"/>';
 
@@ -92,18 +98,20 @@
 
     <div class="no-scrollbar flex flex-col overflow-y-auto pb-6 duration-300 ease-linear">
         <nav class="space-y-6">
-            <!-- Main group -->
-            <div>
-                <h3 class="sidebar-heading mb-3 text-xs font-semibold uppercase leading-5 tracking-wide text-gray-400 dark:text-gray-500">{{ __('Menu') }}</h3>
-                <ul class="space-y-1">
-                    <li>
-                        <a href="{{ route('dashboard') }}" @click="sidebarOpen = false" class="menu-item {{ $isRouteActive('dashboard') ? 'menu-item-active' : 'menu-item-inactive' }}">
-                            {!! $navIcon('dashboard') !!}
-                            <span class="sidebar-label">{{ __('Dashboard') }}</span>
-                        </a>
-                    </li>
-                </ul>
-            </div>
+            @if(! $hasTenantContext)
+                <!-- Main group (platform-only) -->
+                <div>
+                    <h3 class="sidebar-heading mb-3 text-xs font-semibold uppercase leading-5 tracking-wide text-gray-400 dark:text-gray-500">{{ __('Menu') }}</h3>
+                    <ul class="space-y-1">
+                        <li>
+                            <a href="{{ route('dashboard') }}" @click="sidebarOpen = false" class="menu-item {{ $isRouteActive('dashboard') ? 'menu-item-active' : 'menu-item-inactive' }}">
+                                {!! $navIcon('dashboard') !!}
+                                <span class="sidebar-label">{{ __('Dashboard') }}</span>
+                            </a>
+                        </li>
+                    </ul>
+                </div>
+            @endif
 
             @if($isSaasAdmin)
                 @foreach(config('super_admin_menu', []) as $menuGroup)
@@ -135,46 +143,46 @@
                         : $user?->tenant()->where('status', 'active')->first();
                     $workspaceAutomatic = $workspaceTenant?->isAutomatic() ?? true;
 
-                    // Tenant workspace is grouped by job focus instead of one flat list.
+                    // Tenant workspace menu grouped by job focus: the day-to-day
+                    // operations come first, then money, growth and workspace.
+                    $allStaffRoles = [\App\Models\User::ROLE_SUPER_ADMIN, \App\Models\User::ROLE_TENANT_ADMIN, \App\Models\User::ROLE_FINANCE, \App\Models\User::ROLE_SUPPORT, \App\Models\User::ROLE_NETWORK_ENGINEER];
+                    $ownerRoles = [\App\Models\User::ROLE_SUPER_ADMIN, \App\Models\User::ROLE_TENANT_ADMIN];
+
                     $tenantGroups = [
                         [
-                            'heading' => 'Subscribers & service',
+                            'heading' => 'Operations',
                             'items' => [
-                                ['route' => 'customers', 'label' => 'Subscribers', 'icon' => 'users', 'roles' => [\App\Models\User::ROLE_SUPER_ADMIN, \App\Models\User::ROLE_TENANT_ADMIN, \App\Models\User::ROLE_SUPPORT, \App\Models\User::ROLE_NETWORK_ENGINEER]],
-                                ['route' => 'packages', 'label' => 'Service plans', 'icon' => 'box', 'roles' => [\App\Models\User::ROLE_SUPER_ADMIN, \App\Models\User::ROLE_TENANT_ADMIN]],
+                                ['route' => 'dashboard', 'label' => 'Dashboard', 'icon' => 'dashboard', 'roles' => $allStaffRoles],
+                                ['route' => 'customers', 'label' => 'Subscribers', 'icon' => 'users', 'roles' => $allStaffRoles],
+                                ['route' => 'packages', 'label' => 'Service plans', 'icon' => 'wifi', 'roles' => $ownerRoles],
                                 ['route' => 'network', 'label' => 'Network', 'icon' => 'server', 'roles' => [\App\Models\User::ROLE_SUPER_ADMIN, \App\Models\User::ROLE_TENANT_ADMIN, \App\Models\User::ROLE_NETWORK_ENGINEER], 'automaticOnly' => true],
-                                ['route' => 'issues', 'label' => 'Issues', 'icon' => 'chat', 'roles' => [\App\Models\User::ROLE_SUPER_ADMIN, \App\Models\User::ROLE_TENANT_ADMIN, \App\Models\User::ROLE_SUPPORT, \App\Models\User::ROLE_NETWORK_ENGINEER]],
+                                ['route' => 'cable-map', 'label' => 'Cable & fiber map', 'icon' => 'map', 'roles' => [\App\Models\User::ROLE_SUPER_ADMIN, \App\Models\User::ROLE_TENANT_ADMIN, \App\Models\User::ROLE_NETWORK_ENGINEER]],
+                                ['route' => 'issues', 'label' => 'Issues', 'icon' => 'flag', 'roles' => $allStaffRoles],
                             ],
                         ],
                         [
-                            'heading' => 'Money & billing',
+                            'heading' => 'Money',
                             'items' => [
                                 ['route' => 'billing', 'label' => 'Bills & invoices', 'icon' => 'receipt', 'roles' => [\App\Models\User::ROLE_SUPER_ADMIN, \App\Models\User::ROLE_TENANT_ADMIN, \App\Models\User::ROLE_FINANCE]],
                                 ['route' => 'payments', 'label' => 'Collections', 'icon' => 'dollar', 'roles' => [\App\Models\User::ROLE_SUPER_ADMIN, \App\Models\User::ROLE_TENANT_ADMIN, \App\Models\User::ROLE_FINANCE]],
-                                ['route' => 'isp-gateway', 'label' => 'Payment methods', 'icon' => 'banknote', 'roles' => [\App\Models\User::ROLE_SUPER_ADMIN, \App\Models\User::ROLE_TENANT_ADMIN]],
+                                ['route' => 'isp-gateway', 'label' => 'Payment methods', 'icon' => 'card', 'roles' => $ownerRoles],
                             ],
                         ],
                         [
-                            'heading' => 'Cable & coverage',
+                            'heading' => 'Growth',
                             'items' => [
-                                ['route' => 'cable-map', 'label' => 'Cable & fiber map', 'icon' => 'share', 'roles' => [\App\Models\User::ROLE_SUPER_ADMIN, \App\Models\User::ROLE_TENANT_ADMIN, \App\Models\User::ROLE_NETWORK_ENGINEER]],
-                            ],
-                        ],
-                        [
-                            'heading' => 'Growth & insights',
-                            'items' => [
-                                ['route' => 'resellers', 'label' => 'Reseller partners', 'icon' => 'share', 'roles' => [\App\Models\User::ROLE_SUPER_ADMIN, \App\Models\User::ROLE_TENANT_ADMIN]],
-                                ['route' => 'reports', 'label' => 'Reports & insights', 'icon' => 'chart', 'roles' => [\App\Models\User::ROLE_SUPER_ADMIN, \App\Models\User::ROLE_TENANT_ADMIN, \App\Models\User::ROLE_FINANCE, \App\Models\User::ROLE_SUPPORT, \App\Models\User::ROLE_NETWORK_ENGINEER]],
+                                ['route' => 'resellers', 'label' => 'Reseller partners', 'icon' => 'briefcase', 'roles' => $ownerRoles],
+                                ['route' => 'reports', 'label' => 'Reports & insights', 'icon' => 'chart', 'roles' => $allStaffRoles],
                             ],
                         ],
                         [
                             'heading' => 'Workspace',
                             'items' => [
-                                ['route' => 'isp-team', 'label' => 'Team & staff', 'icon' => 'users', 'roles' => [\App\Models\User::ROLE_SUPER_ADMIN, \App\Models\User::ROLE_TENANT_ADMIN]],
-                                ['route' => 'isp-subscription', 'label' => 'My BeeCore plan', 'icon' => 'repeat', 'roles' => [\App\Models\User::ROLE_SUPER_ADMIN, \App\Models\User::ROLE_TENANT_ADMIN]],
-                                ['route' => 'isp-addons', 'label' => 'Add-on store', 'icon' => 'box', 'roles' => [\App\Models\User::ROLE_SUPER_ADMIN, \App\Models\User::ROLE_TENANT_ADMIN]],
+                                ['route' => 'isp-team', 'label' => 'Team & staff', 'icon' => 'user-plus', 'roles' => $ownerRoles],
+                                ['route' => 'isp-addons', 'label' => 'Add-on store', 'icon' => 'shopping-bag', 'roles' => $ownerRoles],
+                                ['route' => 'isp-subscription', 'label' => 'My BeeCore plan', 'icon' => 'repeat', 'roles' => $ownerRoles],
                                 ['route' => 'support', 'label' => 'Support', 'icon' => 'help', 'roles' => [\App\Models\User::ROLE_SUPER_ADMIN, \App\Models\User::ROLE_TENANT_ADMIN, \App\Models\User::ROLE_SUPPORT]],
-                                ['route' => 'isp-settings', 'label' => 'Workspace settings', 'icon' => 'sliders', 'roles' => [\App\Models\User::ROLE_SUPER_ADMIN, \App\Models\User::ROLE_TENANT_ADMIN]],
+                                ['route' => 'isp-settings', 'label' => 'Workspace settings', 'icon' => 'settings', 'roles' => $ownerRoles],
                             ],
                         ],
                     ];

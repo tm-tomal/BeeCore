@@ -163,6 +163,8 @@ Route::middleware('auth')->group(function () {
     Route::get('/dashboard', Dashboard::class)->name('dashboard');
     Route::get('/my-profile', App\Livewire\MyProfile::class)->name('my-profile');
 
+    Route::get('/attachments/{attachment}', App\Http\Controllers\AttachmentController::class)->name('attachments.show');
+
     Route::post('/locale', function (Request $request) {
         $language = \App\Models\Language::query()->where('code', (string) $request->input('locale'))->where('is_active', true)->first();
 
@@ -269,47 +271,13 @@ Route::middleware('auth')->group(function () {
 });
 
 // Public problem-report pages for ISP customers (no login needed).
+// The form itself is a Livewire component (PublicIssueReport) so uploaded
+// photos/videos start transferring the moment they are picked.
 Route::get('/r/{tenant:slug}/report', function (Tenant $tenant) {
     abort_unless($tenant->status === 'active' && ! $tenant->archived_at, 404);
 
     return view('issues.public-report', ['tenant' => $tenant]);
 })->name('issues.public.report');
-
-Route::post('/r/{tenant:slug}/report', function (Request $request, Tenant $tenant) {
-    abort_unless($tenant->status === 'active' && ! $tenant->archived_at, 404);
-
-    $data = $request->validate([
-        'name' => ['required', 'string', 'max:255'],
-        'phone' => ['required', 'string', 'max:30'],
-        'category' => ['required', Rule::in(['connection', 'network', 'service', 'billing', 'other'])],
-        'subject' => ['required', 'string', 'max:255'],
-        'description' => ['nullable', 'string', 'max:2000'],
-    ]);
-
-    // Link the report to an existing subscriber when the phone matches exactly.
-    $cleanPhone = preg_replace('/\D+/', '', $data['phone']);
-    $customer = $cleanPhone
-        ? \App\Models\Customer::query()
-            ->where('tenant_id', $tenant->id)
-            ->get()
-            ->first(fn ($c) => preg_replace('/\D+/', '', (string) $c->phone) === $cleanPhone)
-        : null;
-
-    \App\Models\Issue::create([
-        'tenant_id' => $tenant->id,
-        'customer_id' => $customer?->id,
-        'reporter_name' => $data['name'],
-        'reporter_phone' => $data['phone'],
-        'subject' => $data['subject'],
-        'category' => $data['category'],
-        'priority' => 'medium',
-        'status' => \App\Models\Issue::STATUS_NEW,
-        'source' => 'public',
-        'description' => $data['description'] ?: null,
-    ]);
-
-    return back()->with('status', __('Thank you! Your report was sent to :name.', ['name' => $tenant->name]));
-})->middleware('throttle:10,1')->name('issues.public.store');
 
 // BeeCore hosted payment gateway (public) — used by ISP customers and BeeCore SaaS checkouts.
 Route::get('/pay/invoice/{invoice}', [App\Http\Controllers\BeePayController::class, 'invoice'])->name('bee-pay.invoice');

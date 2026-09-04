@@ -25,6 +25,22 @@ class Reports extends Component {
         \App\Support\TenantPermissions::assert('reports');
     }
 
+    public function setRange(string $range): void {
+        $today = now();
+
+        [$from, $to] = match ($range) {
+            'today' => [$today->copy()->startOfDay(), $today->copy()->endOfDay()],
+            '7d' => [$today->copy()->subDays(6)->startOfDay(), $today->copy()->endOfDay()],
+            '30d' => [$today->copy()->subDays(29)->startOfDay(), $today->copy()->endOfDay()],
+            'this_month' => [$today->copy()->startOfMonth(), $today->copy()->endOfDay()],
+            'last_month' => [$today->copy()->subMonthNoOverflow()->startOfMonth(), $today->copy()->subMonthNoOverflow()->endOfMonth()],
+            default => abort(422, 'Unknown report range.'),
+        };
+
+        $this->from = $from->toDateString();
+        $this->to = $to->toDateString();
+    }
+
     public function render() {
         $tenantId = app(CurrentTenant::class)->id();
         $from = Carbon::parse($this->from ?: now()->startOfMonth())->startOfDay();

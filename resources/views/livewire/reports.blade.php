@@ -6,21 +6,39 @@
             <h1 class="mt-1 text-title-sm font-bold text-gray-800 dark:text-white/90">{{ __('Business reports') }}</h1>
             <p class="mt-1 text-theme-sm text-gray-500 dark:text-gray-400">{{ __('Collections, invoices, customers, and operating capacity for :from – :to.', ['from' => \Carbon\Carbon::parse($period['from'])->format('d M Y'), 'to' => \Carbon\Carbon::parse($period['to'])->format('d M Y')]) }}</p>
         </div>
-        <div class="flex shrink-0 flex-col items-stretch gap-2 sm:flex-row sm:items-end sm:gap-3">
-            <div>
-                <label for="report-from" class="mb-1.5 block text-theme-sm font-medium text-gray-700 dark:text-gray-400">{{ __('From') }}</label>
-                <input id="report-from" type="date" wire:model.live="from" class="h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-theme-sm text-gray-800 shadow-theme-xs placeholder:text-gray-400 focus:border-brand-300 focus:ring-3 focus:ring-brand-500/10 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30">
-            </div>
-            <div>
-                <label for="report-to" class="mb-1.5 block text-theme-sm font-medium text-gray-700 dark:text-gray-400">{{ __('To') }}</label>
-                <input id="report-to" type="date" wire:model.live="to" class="h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-theme-sm text-gray-800 shadow-theme-xs placeholder:text-gray-400 focus:border-brand-300 focus:ring-3 focus:ring-brand-500/10 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30">
-            </div>
-            <a href="{{ $printUrl }}" target="_blank" rel="noopener" class="inline-flex h-11 shrink-0 items-center justify-center gap-2 rounded-lg bg-gray-900 px-4 py-2.5 text-theme-sm font-medium text-white shadow-theme-xs transition hover:bg-gray-800 dark:bg-white dark:text-gray-900 dark:hover:bg-gray-200">
-                <svg class="size-4 stroke-current" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
-                {{ __('Download PDF') }}
-            </a>
-        </div>
+        <a href="{{ $printUrl }}" target="_blank" rel="noopener" class="inline-flex h-11 shrink-0 items-center justify-center gap-2 rounded-lg bg-gray-900 px-4 py-2.5 text-theme-sm font-medium text-white shadow-theme-xs transition hover:bg-gray-800 dark:bg-white dark:text-gray-900 dark:hover:bg-gray-200">
+            <svg class="size-4 stroke-current" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
+            {{ __('Download PDF') }}
+        </a>
     </header>
+
+    <!-- Range toolbar: quick picks + exact dates -->
+    <section class="rounded-2xl border border-gray-200 bg-white p-4 shadow-theme-xs dark:border-gray-800 dark:bg-white/[0.03] sm:px-5">
+        <div class="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
+            <div>
+                <p class="text-theme-xs font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500">{{ __('Report period') }}</p>
+                <div class="mt-2.5 flex flex-wrap items-center gap-2">
+                    @foreach([
+                        ['today', __('Today')], ['7d', __('Last 7 days')], ['30d', __('Last 30 days')],
+                        ['this_month', __('This month')], ['last_month', __('Last month')],
+                    ] as [$key, $label])
+                        <button type="button" wire:click="setRange('{{ $key }}')" class="inline-flex items-center rounded-full border border-gray-200 px-3.5 py-1.5 text-theme-xs font-medium text-gray-600 transition hover:border-brand-300 hover:bg-brand-50 hover:text-brand-600 dark:border-gray-700 dark:text-gray-300 dark:hover:border-brand-500/40 dark:hover:bg-brand-500/10 dark:hover:text-brand-400">{{ $label }}</button>
+                    @endforeach
+                </div>
+            </div>
+
+            <div class="flex flex-col gap-3 sm:flex-row sm:items-end sm:gap-3">
+                <div>
+                    <label for="report-from" class="mb-1.5 block text-theme-xs font-medium text-gray-500 dark:text-gray-400">{{ __('From') }}</label>
+                    <input id="report-from" type="date" wire:model.live="from" class="h-10 w-full rounded-lg border border-gray-300 bg-transparent px-3.5 py-2 text-theme-sm text-gray-800 shadow-theme-xs focus:border-brand-300 focus:ring-3 focus:ring-brand-500/10 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 sm:w-44">
+                </div>
+                <div>
+                    <label for="report-to" class="mb-1.5 block text-theme-xs font-medium text-gray-500 dark:text-gray-400">{{ __('To') }}</label>
+                    <input id="report-to" type="date" wire:model.live="to" class="h-10 w-full rounded-lg border border-gray-300 bg-transparent px-3.5 py-2 text-theme-sm text-gray-800 shadow-theme-xs focus:border-brand-300 focus:ring-3 focus:ring-brand-500/10 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 sm:w-44">
+                </div>
+            </div>
+        </div>
+    </section>
 
     <!-- Metric cards -->
     <section class="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4 md:gap-6">

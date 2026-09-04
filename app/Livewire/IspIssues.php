@@ -171,7 +171,7 @@ class IspIssues extends Component
                 'fromCustomers' => (clone $base)->where('source', 'public')->count(),
             ],
             'detailIssue' => $this->detailIssueId
-                ? Issue::with(['customer', 'creator'])->where('tenant_id', $tenantId)->find($this->detailIssueId)
+                ? Issue::with(['customer', 'creator', 'attachments'])->where('tenant_id', $tenantId)->find($this->detailIssueId)
                 : null,
             'customers' => Customer::query()->where('tenant_id', $tenantId)->orderBy('name')->get(['id', 'name', 'phone']),
             'categories' => $this->categoryLabels(),

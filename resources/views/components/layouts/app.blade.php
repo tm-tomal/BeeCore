@@ -197,7 +197,7 @@
                                     <span class="grid h-9 w-9 place-items-center rounded-full bg-brand-100 text-sm font-bold text-brand-600 dark:bg-brand-500/15 dark:text-brand-400">{{ strtoupper(substr(auth()->user()->name ?? 'A', 0, 1)) }}</span>
                                     <span class="hidden text-left sm:block">
                                         <span class="text-theme-sm block max-w-40 truncate font-medium text-gray-800 dark:text-white/90">{{ auth()->user()->name }}</span>
-                                        <span class="text-theme-xs block capitalize text-gray-500 dark:text-gray-400">{{ str_replace('_', ' ', auth()->user()->role) }}</span>
+                                        <span class="text-theme-xs block capitalize text-gray-500 dark:text-gray-400">{{ \App\Models\User::roleLabel(auth()->user()->role) }}</span>
                                     </span>
                                     <svg :class="userMenuOpen && 'rotate-180'" class="hidden stroke-gray-500 sm:block dark:stroke-gray-400" width="16" height="16" viewBox="0 0 18 20" fill="none"><path d="M4.3125 8.65625L9 13.3437L13.6875 8.65625" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
                                 </button>

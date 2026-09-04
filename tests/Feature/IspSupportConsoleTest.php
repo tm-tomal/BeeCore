@@ -5,9 +5,12 @@ namespace Tests\Feature;
 use App\Livewire\IspSupport;
 use App\Livewire\SupportTickets;
 use App\Models\SupportTicket;
+use App\Models\SupportTicketReply;
 use App\Models\Tenant;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Storage;
 use Livewire\Livewire;
 use Tests\TestCase;
 
@@ -120,5 +123,46 @@ class IspSupportConsoleTest extends TestCase
 
         $this->assertSame('resolved', $ticket->fresh()->status);
         $this->assertNotNull($ticket->fresh()->resolved_at);
+    }
+
+    public function test_isp_can_attach_photos_to_a_ticket_and_to_a_reply(): void
+    {
+        Storage::fake('local');
+        $tenant = $this->tenant('spg', 'Epsilon ISP');
+        $admin = User::factory()->create(['tenant_id' => $tenant->id, 'role' => User::ROLE_TENANT_ADMIN]);
+
+        Livewire::actingAs($admin)
+            ->test(IspSupport::class)
+            ->call('createForm')
+            ->set('subject', 'Dashboard looks broken')
+            ->set('category', 'technical')
+            ->set('description', 'Screenshot attached below.')
+            ->set('files', [UploadedFile::fake()->image('dashboard.png', 160, 90)])
+            ->call('save')
+            ->assertHasNoErrors();
+
+        $ticket = SupportTicket::where('tenant_id', $tenant->id)->firstOrFail();
+        $this->assertDatabaseHas('attachments', [
+            'tenant_id' => $tenant->id,
+            'attachable_type' => SupportTicket::class,
+            'attachable_id' => $ticket->id,
+            'original_name' => 'dashboard.png',
+        ]);
+
+        Livewire::actingAs($admin)
+            ->test(IspSupport::class)
+            ->call('viewDetail', $ticket->id)
+            ->set('replyMessage', 'Also sending the video clip')
+            ->set('files', [UploadedFile::fake()->image('clip.png', 60, 40)])
+            ->call('reply')
+            ->assertHasNoErrors();
+
+        $reply = SupportTicketReply::where('support_ticket_id', $ticket->id)->firstOrFail();
+        $this->assertSame($admin->id, $reply->user_id);
+        $this->assertDatabaseHas('attachments', [
+            'attachable_type' => SupportTicketReply::class,
+            'attachable_id' => $reply->id,
+            'original_name' => 'clip.png',
+        ]);
     }
 }
