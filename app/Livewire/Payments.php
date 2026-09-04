@@ -20,7 +20,7 @@ class Payments extends Component {
     use AuthorizesRoles, WithPagination;
 
     public function boot(): void {
-        $this->authorizeRoles(User::ROLE_SUPER_ADMIN, User::ROLE_TENANT_ADMIN, User::ROLE_FINANCE);
+        \App\Support\TenantPermissions::assert('billing');
     }
 
     public $viewMode = 'index';

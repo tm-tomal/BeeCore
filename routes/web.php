@@ -222,10 +222,10 @@ Route::middleware('auth')->group(function () {
     });
 
     Route::middleware('tenant-context')->group(function () {
-        Route::get('/customers', App\Livewire\Customers::class)->middleware('role:super_admin,tenant_admin,support,network_engineer')->name('customers');
-        Route::get('/customers/{customer}', App\Livewire\CustomerProfile::class)->middleware('role:super_admin,tenant_admin,support,network_engineer')->name('customers.show');
+        Route::get('/customers', App\Livewire\Customers::class)->middleware('tenant.module:customers')->name('customers');
+        Route::get('/customers/{customer}', App\Livewire\CustomerProfile::class)->middleware('tenant.module:customers')->name('customers.show');
         Route::get('/packages', App\Livewire\Packages::class)->middleware('role:super_admin,tenant_admin')->name('packages');
-        Route::get('/billing', App\Livewire\Billing::class)->middleware('role:super_admin,tenant_admin,finance')->name('billing');
+        Route::get('/billing', App\Livewire\Billing::class)->middleware('tenant.module:billing')->name('billing');
         Route::get('/billing/invoices/{invoice}/print', function (\App\Models\Invoice $invoice) {
             $tenantId = app(\App\Support\CurrentTenant::class)->id();
             abort_unless((int) $invoice->tenant_id === (int) $tenantId, 404, 'Invoice not found in this workspace.');
@@ -236,12 +236,12 @@ Route::middleware('auth')->group(function () {
                 'invoice' => $invoice,
                 'branding' => \App\Models\TenantBranding::query()->where('tenant_id', $tenantId)->first(),
             ]);
-        })->middleware('role:super_admin,tenant_admin,finance')->name('billing.invoice-print');
-        Route::get('/payments', App\Livewire\Payments::class)->middleware('role:super_admin,tenant_admin,finance')->name('payments');
-        Route::get('/network', App\Livewire\Network::class)->middleware('role:super_admin,tenant_admin,network_engineer')->name('network');
-        Route::get('/cable-map', App\Livewire\CableMap::class)->middleware('role:super_admin,tenant_admin,network_engineer')->name('cable-map');
+        })->middleware('tenant.module:billing')->name('billing.invoice-print');
+        Route::get('/payments', App\Livewire\Payments::class)->middleware('tenant.module:billing')->name('payments');
+        Route::get('/network', App\Livewire\Network::class)->middleware('tenant.module:network')->name('network');
+        Route::get('/cable-map', App\Livewire\CableMap::class)->middleware('tenant.module:network')->name('cable-map');
         Route::get('/resellers', App\Livewire\Resellers::class)->middleware('role:super_admin,tenant_admin')->name('resellers');
-        Route::get('/reports', App\Livewire\Reports::class)->middleware('role:super_admin,tenant_admin,finance,support,network_engineer')->name('reports');
+        Route::get('/reports', App\Livewire\Reports::class)->middleware('tenant.module:reports')->name('reports');
         Route::get('/reports/print', function () {
             $tenantId = app(\App\Support\CurrentTenant::class)->id();
             $from = \Carbon\Carbon::parse(request('from', now()->startOfMonth()->toDateString()))->startOfDay();
@@ -257,14 +257,14 @@ Route::middleware('auth')->group(function () {
                 'paymentMethods' => $snapshot['paymentMethods'],
                 'invoiceStatuses' => $snapshot['invoiceStatuses'],
             ]);
-        })->middleware('role:super_admin,tenant_admin,finance,support,network_engineer')->name('reports.print');
+        })->middleware('tenant.module:reports')->name('reports.print');
         Route::get('/settings', App\Livewire\IspSettings::class)->middleware('role:super_admin,tenant_admin')->name('isp-settings');
         Route::get('/gateway', App\Livewire\IspGateway::class)->middleware('role:super_admin,tenant_admin')->name('isp-gateway');
         Route::get('/team', App\Livewire\IspTeam::class)->middleware('role:super_admin,tenant_admin')->name('isp-team');
         Route::get('/subscription', App\Livewire\IspSubscription::class)->middleware('role:super_admin,tenant_admin')->name('isp-subscription');
         Route::get('/add-on-market', App\Livewire\IspAddons::class)->middleware('role:super_admin,tenant_admin')->name('isp-addons');
-        Route::get('/support', App\Livewire\IspSupport::class)->middleware('role:super_admin,tenant_admin,support')->name('support');
-        Route::get('/issues', App\Livewire\IspIssues::class)->middleware('role:super_admin,tenant_admin,support,network_engineer')->name('issues');
+        Route::get('/support', App\Livewire\IspSupport::class)->middleware('tenant.module:support')->name('support');
+        Route::get('/issues', App\Livewire\IspIssues::class)->middleware('tenant.module:issues')->name('issues');
     });
 });
 

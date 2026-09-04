@@ -16,6 +16,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'role' => \App\Http\Middleware\EnsureRole::class,
             'super-admin' => \App\Http\Middleware\EnsureSuperAdmin::class,
             'tenant-context' => \App\Http\Middleware\TenantContext::class,
+            'tenant.module' => \App\Http\Middleware\EnsureTenantModule::class,
         ]);
 
         // bKash server calls this URL back after a customer finishes in their

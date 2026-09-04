@@ -39,7 +39,7 @@ class IspSupport extends Component
 
     public function boot(): void
     {
-        $this->authorizeRoles(User::ROLE_SUPER_ADMIN, User::ROLE_TENANT_ADMIN, User::ROLE_SUPPORT);
+        \App\Support\TenantPermissions::assert('support');
     }
 
     private function tenantId(): int

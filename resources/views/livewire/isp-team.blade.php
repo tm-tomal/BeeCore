@@ -221,6 +221,32 @@
                                 <p class="text-theme-xs text-gray-400 dark:text-gray-500">{{ $roleMetaItem['fixed'] ? 'This workspace is owned by an ISP Owner.' : 'No members assigned to this role yet.' }}</p>
                             @endforelse
                         </div>
+
+                        @if(! $roleMetaItem['fixed'])
+                            <div class="mt-4 border-t border-gray-100 pt-4 dark:border-gray-800">
+                                <div class="flex items-center justify-between gap-3">
+                                    <p class="flex items-center gap-1.5 text-theme-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                                        <svg class="size-3.5 stroke-current" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                                        Feature access
+                                    </p>
+                                    <span class="text-theme-xs text-gray-400 dark:text-gray-500">{{ __('tap to toggle') }}</span>
+                                </div>
+                                <div class="mt-2 space-y-1.5">
+                                    @foreach($permissionCatalog as $moduleKey => $moduleMeta)
+                                        @php $moduleOn = $permissions[$roleKey][$moduleKey] ?? false; @endphp
+                                        <button type="button" wire:click="togglePermission('{{ $roleKey }}', '{{ $moduleKey }}')" title="{{ $moduleMeta['description'] }}" class="flex w-full items-center justify-between gap-3 rounded-lg px-2 py-1.5 text-left transition hover:bg-gray-50 dark:hover:bg-white/[0.03]">
+                                            <span class="min-w-0">
+                                                <span class="block truncate text-theme-sm font-medium text-gray-700 dark:text-gray-300">{{ $moduleMeta['label'] }}</span>
+                                                <span class="block truncate text-theme-xs text-gray-400 dark:text-gray-500">{{ $moduleMeta['description'] }}</span>
+                                            </span>
+                                            <span class="relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition {{ $moduleOn ? 'bg-success-500' : 'bg-gray-300 dark:bg-gray-700' }}" aria-hidden="true">
+                                                <span class="inline-block h-3.5 w-3.5 transform rounded-full bg-white shadow transition {{ $moduleOn ? 'translate-x-[18px]' : 'translate-x-1' }}"></span>
+                                            </span>
+                                        </button>
+                                    @endforeach
+                                </div>
+                            </div>
+                        @endif
                     </article>
                 @endforeach
             </div>

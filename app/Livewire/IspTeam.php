@@ -7,6 +7,7 @@ use App\Models\User;
 use App\Support\AuthorizesRoles;
 use App\Support\CurrentTenant;
 use App\Support\PlanQuota;
+use App\Support\TenantPermissions;
 use Illuminate\Validation\Rule;
 use Livewire\Attributes\Layout;
 use Livewire\Component;
@@ -95,6 +96,25 @@ class IspTeam extends Component
         $this->resetValidation();
     }
 
+    public function togglePermission(string $role, string $module): void
+    {
+        $tenant = app(CurrentTenant::class)->resolve();
+
+        abort_unless($tenant, 403);
+        abort_unless(in_array($role, array_keys($this->assignableRoles()), true), 403);
+
+        $enabled = TenantPermissions::isEnabled($tenant->id, $role, $module);
+        TenantPermissions::setEnabled($tenant->id, $role, $module, ! $enabled);
+
+        AuditLog::record('tenant.role.permission_changed', null, [
+            'role' => $role,
+            'module' => $module,
+            'enabled' => ! $enabled,
+        ], tenantId: $tenant->id);
+
+        session()->flash('message', 'Permissions updated.');
+    }
+
     public function save(): void
     {
         $tenant = app(CurrentTenant::class)->resolve();
@@ -177,11 +197,19 @@ class IspTeam extends Component
             ->first();
         $limit = $subscription?->plan?->staff_limit;
 
+        $permissions = $tenant
+            ? collect(TenantPermissions::STAFF_ROLES)
+                ->mapWithKeys(fn (string $role) => [$role => TenantPermissions::roleModules($tenant->id, $role)])
+                ->all()
+            : [];
+
         return view('livewire.isp-team', [
             'tenant' => $tenant,
             'members' => $members,
             'membersByRole' => $members->groupBy('role'),
             'roleCatalog' => $roleCatalog,
+            'permissions' => $permissions,
+            'permissionCatalog' => TenantPermissions::catalog(),
             'currentUser' => auth()->user(),
             'usage' => $usage,
             'limit' => $limit,

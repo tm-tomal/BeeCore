@@ -45,7 +45,7 @@ class IspIssues extends Component
 
     public function boot(): void
     {
-        $this->authorizeRoles(User::ROLE_SUPER_ADMIN, User::ROLE_TENANT_ADMIN, User::ROLE_SUPPORT, User::ROLE_NETWORK_ENGINEER);
+        \App\Support\TenantPermissions::assert('issues');
     }
 
     private function tenantId(): int
