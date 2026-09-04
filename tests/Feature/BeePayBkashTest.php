@@ -411,6 +411,68 @@ class BeePayBkashTest extends TestCase
         $this->assertNull($intent->bkash_payment_id);
     }
 
+    public function test_open_bee_pay_page_refreshes_a_stale_plan_price(): void
+    {
+        $this->gateway();
+        $tenant = $this->tenant('bkash-price-refresh-plan');
+        $plan = SaasPlan::create([
+            'name' => 'Starter', 'slug' => 'bkash-refresh-plan', 'monthly_price' => 2500, 'yearly_price' => 25000,
+            'customer_limit' => 300, 'is_active' => true, 'operation_mode' => 'manual',
+        ]);
+
+        // An abandoned attempt still holds the old price…
+        $intent = BeePaymentIntent::createFor(BeePaymentIntent::KIND_SAAS_PLAN, $tenant->id, 2500, [
+            'deferred' => true, 'saas_plan_id' => $plan->id, 'billing_cycle' => 'monthly',
+        ]);
+
+        // …but the plan price has since changed.
+        $plan->update(['monthly_price' => 3200]);
+
+        $this->get(route('bee-pay.intent', ['intent' => $intent->token]))
+            ->assertOk()
+            ->assertSee('Pay with bKash')
+            ->assertSee('3,200.00')
+            ->assertDontSee('2,500.00');
+
+        $this->assertSame('3200.00', $intent->fresh()->amount);
+    }
+
+    public function test_open_bee_pay_page_refreshes_a_stale_add_on_price(): void
+    {
+        $this->gateway();
+        $tenant = $this->tenant('bkash-price-refresh-addon');
+
+        $plan = SaasPlan::create([
+            'name' => 'Starter', 'slug' => 'bkash-refresh-addon-plan', 'monthly_price' => 2000, 'yearly_price' => 20000,
+            'customer_limit' => 300, 'is_active' => true, 'operation_mode' => 'manual',
+        ]);
+        TenantSubscription::create([
+            'tenant_id' => $tenant->id, 'saas_plan_id' => $plan->id, 'status' => 'active',
+            'billing_cycle' => 'monthly', 'price' => 2000, 'starts_at' => today()->subMonth(),
+            'current_period_ends_at' => today()->addMonth(), 'auto_renew' => true,
+        ]);
+
+        $addonProduct = \App\Models\Addon::create([
+            'name' => 'SMS Pack', 'slug' => 'bkash-refresh-sms', 'category' => 'sms',
+            'description' => 'Extra SMS', 'price' => 500, 'billing_cycle' => 'monthly',
+            'usage_limit' => 1000, 'is_active' => true,
+        ]);
+
+        $intent = BeePaymentIntent::createFor(BeePaymentIntent::KIND_SAAS_ADDON, $tenant->id, 500, [
+            'deferred' => true, 'addon_id' => $addonProduct->id, 'billing_cycle' => 'monthly',
+        ]);
+
+        $addonProduct->update(['price' => 700]);
+
+        $this->get(route('bee-pay.intent', ['intent' => $intent->token]))
+            ->assertOk()
+            ->assertSee('Pay with bKash')
+            ->assertSee('700.00')
+            ->assertDontSee('500.00');
+
+        $this->assertSame('700.00', $intent->fresh()->amount);
+    }
+
     public function test_admin_connection_test_hits_the_real_bkash_token_endpoint(): void
     {
         Http::fake([

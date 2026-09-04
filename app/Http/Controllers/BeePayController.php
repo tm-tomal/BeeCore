@@ -81,6 +81,8 @@ class BeePayController
             abort(404);
         }
 
+        $this->refreshOpenAmount($intent);
+
         return view('bee-pay.page', [
             'intent' => $intent,
             'fee' => SystemSetting::beeFeePercent(),
@@ -91,6 +93,8 @@ class BeePayController
     public function initiate(BeePaymentIntent $intent, Request $request)
     {
         abort_unless($intent->status !== BeePaymentIntent::STATUS_SUCCESS, 422, 'This payment was already completed.');
+
+        $this->refreshOpenAmount($intent);
 
         $gateway = BkashGateway::resolve();
 
@@ -518,6 +522,71 @@ class BeePayController
             'source' => 'bkash_callback',
             'trx_id' => $trxID,
         ], tenantId: $tenantId);
+    }
+
+    /**
+     * Keep the price of an open intent current. A reused intent — the same
+     * plan, add-on or invoice paid again after a failed/abandoned attempt —
+     * can carry a stale amount snapshot. Refresh it from the live source so the
+     * BeePay page and the bKash charge always match today's price.
+     *
+     * Only safe while no bKash session has actually started (status "created"):
+     * once a payment is processing we must never rewrite the amount.
+     */
+    private function refreshOpenAmount(BeePaymentIntent $intent): void
+    {
+        if ($intent->status !== BeePaymentIntent::STATUS_CREATED) {
+            return;
+        }
+
+        $current = $this->currentIntentAmount($intent);
+
+        if ($current !== null && (float) $intent->amount !== $current) {
+            $intent->update(['amount' => $current]);
+        }
+    }
+
+    private function currentIntentAmount(BeePaymentIntent $intent): ?float
+    {
+        $meta = $intent->meta ?? [];
+
+        if ($intent->kind === BeePaymentIntent::KIND_INVOICE) {
+            $invoice = Invoice::query()->where('tenant_id', $intent->tenant_id)->find($meta['invoice_id'] ?? 0);
+
+            if (! $invoice || ! in_array($invoice->status, ['pending', 'overdue'], true)) {
+                return null;
+            }
+
+            return max(0, (float) $invoice->outstanding_amount);
+        }
+
+        if (! empty($meta['deferred'])) {
+            if ($intent->kind === BeePaymentIntent::KIND_SAAS_ADDON) {
+                $addon = Addon::find((int) ($meta['addon_id'] ?? 0));
+
+                return $addon ? (float) $addon->price : null;
+            }
+
+            $plan = SaasPlan::find((int) ($meta['saas_plan_id'] ?? 0));
+
+            if (! $plan) {
+                return null;
+            }
+
+            return ($meta['billing_cycle'] ?? 'monthly') === 'yearly'
+                ? (float) $plan->yearly_price
+                : (float) $plan->monthly_price;
+        }
+
+        $invoice = SaasInvoice::query()->where('tenant_id', $intent->tenant_id)->find($meta['saas_invoice_id'] ?? 0);
+
+        if (! $invoice) {
+            return null;
+        }
+
+        $covered = (float) $invoice->payments()->where('status', 'completed')->sum('amount');
+
+        return max(0, (float) $invoice->amount - $covered);
     }
 
     /**
