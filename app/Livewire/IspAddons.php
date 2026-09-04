@@ -163,6 +163,12 @@ class IspAddons extends Component
                 'auto_renew' => $recurring,
             ]);
 
+            // An SMS add-on that activates right away credits the tenant SMS wallet now;
+            // pending approvals credit it later when the payment is verified.
+            if (! $needsApproval) {
+                \App\Services\SmsGateway::creditSmsAddon($row);
+            }
+
             $dueDate = $manual ? $start->copy()->addDays(7) : $start;
 
             $invoice = SaasInvoice::create([

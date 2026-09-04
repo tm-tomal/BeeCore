@@ -22,6 +22,8 @@
             </div>
         @endif
 
+        <x-plan-error-banner />
+
         <!-- Customers table -->
         <x-table heading="{{ __('All customers') }}" :description="__('Showing :count customers', ['count' => number_format($customers->total())])" :paginator="$customers">
             <x-slot:toolbar>

@@ -67,7 +67,12 @@
     <div class="grid gap-4 lg:grid-cols-2 md:gap-6">
         <!-- Profile information -->
         <div class="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03] sm:p-6">
-            <h2 class="text-base font-semibold text-gray-800 dark:text-white/90">{{ __('Profile information') }}</h2>
+            <div class="flex items-center gap-3">
+                <span class="grid size-9 shrink-0 place-items-center rounded-lg bg-brand-500/10 text-brand-600 dark:bg-brand-500/15 dark:text-brand-400">
+                    <svg class="size-4.5 stroke-current" viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+                </span>
+                <h2 class="text-base font-semibold text-gray-800 dark:text-white/90">{{ __('Profile information') }}</h2>
+            </div>
             <form wire:submit="saveProfile" class="mt-5 space-y-5">
                 <div>
                     <label for="mp-name" class="mb-1.5 block text-theme-sm font-medium text-gray-700 dark:text-gray-400">{{ __('Name') }}</label>
@@ -99,7 +104,12 @@
 
         <!-- Change password -->
         <div class="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03] sm:p-6">
-            <h2 class="text-base font-semibold text-gray-800 dark:text-white/90">{{ __('Change password') }}</h2>
+            <div class="flex items-center gap-3">
+                <span class="grid size-9 shrink-0 place-items-center rounded-lg bg-error-500/10 text-error-600 dark:bg-error-500/15 dark:text-error-400">
+                    <svg class="size-4.5 stroke-current" viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                </span>
+                <h2 class="text-base font-semibold text-gray-800 dark:text-white/90">{{ __('Change password') }}</h2>
+            </div>
             <form wire:submit="changePassword" class="mt-5 space-y-5">
                 <div>
                     <label for="mp-current-password" class="mb-1.5 block text-theme-sm font-medium text-gray-700 dark:text-gray-400">{{ __('Current password') }}</label>
@@ -122,7 +132,12 @@
 
         <!-- Two-factor authentication -->
         <div class="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03] sm:p-6">
-            <h2 class="text-base font-semibold text-gray-800 dark:text-white/90">{{ __('Two-factor authentication') }}</h2>
+            <div class="flex items-center gap-3">
+                <span class="grid size-9 shrink-0 place-items-center rounded-lg bg-success-500/10 text-success-600 dark:bg-success-500/15 dark:text-success-400">
+                    <svg class="size-4.5 stroke-current" viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                </span>
+                <h2 class="text-base font-semibold text-gray-800 dark:text-white/90">{{ __('Two-factor authentication') }}</h2>
+            </div>
             <div class="mt-5 space-y-4">
                 @if(auth()->user()->two_factor_enabled)
                     <p class="text-theme-sm text-success-600 dark:text-success-400">{{ __('Two-factor authentication is enabled.') }}</p>
@@ -136,7 +151,12 @@
 
         <!-- Notification preferences -->
         <div class="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03] sm:p-6">
-            <h2 class="text-base font-semibold text-gray-800 dark:text-white/90">{{ __('Notification preferences') }}</h2>
+            <div class="flex items-center gap-3">
+                <span class="grid size-9 shrink-0 place-items-center rounded-lg bg-violet-500/10 text-violet-600 dark:bg-violet-500/15 dark:text-violet-400">
+                    <svg class="size-4.5 stroke-current" viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+                </span>
+                <h2 class="text-base font-semibold text-gray-800 dark:text-white/90">{{ __('Notification preferences') }}</h2>
+            </div>
             <form wire:submit="saveNotificationPreferences" class="mt-5 space-y-4">
                 <label class="flex items-center gap-3 text-theme-sm text-gray-700 dark:text-gray-400">
                     <input wire:model="notifyEmail" type="checkbox" class="h-4.5 w-4.5 rounded border-gray-300 text-brand-500 accent-brand-500 focus:ring-brand-500/30 dark:border-gray-700 dark:bg-gray-900">{{ __('Email notifications') }}
@@ -154,18 +174,28 @@
         <!-- Active sessions -->
         <div class="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03] sm:p-6 lg:col-span-2">
             <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                <h2 class="text-base font-semibold text-gray-800 dark:text-white/90">{{ __('Active sessions') }}</h2>
-                <button wire:click="terminateOtherSessions" class="inline-flex min-h-10 items-center justify-center gap-2 rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-theme-sm font-medium text-gray-700 shadow-theme-xs transition hover:bg-gray-50 hover:text-gray-800 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-white/[0.03] dark:hover:text-gray-200">{{ __('Terminate other sessions') }}</button>
+                <div class="flex items-center gap-3">
+                    <span class="grid size-9 shrink-0 place-items-center rounded-lg bg-brand-500/10 text-brand-600 dark:bg-brand-500/15 dark:text-brand-400">
+                        <svg class="size-4.5 stroke-current" viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+                    </span>
+                    <h2 class="text-base font-semibold text-gray-800 dark:text-white/90">{{ __('Active sessions') }}</h2>
+                </div>
+                <button wire:click="terminateOtherSessions" class="inline-flex min-h-10 items-center justify-center gap-2 rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-theme-sm font-medium text-gray-700 shadow-theme-xs transition hover:bg-error-50 hover:text-error-600 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-error-500/10 dark:hover:text-error-400">{{ __('Terminate other sessions') }}</button>
             </div>
             <ul class="mt-4">
                 @foreach($sessions as $s)
                     <li class="flex items-center justify-between gap-4 border-b border-gray-100 py-3 last:border-0 dark:border-gray-800">
-                        <div class="min-w-0">
-                            <code class="text-theme-sm font-medium text-gray-800 dark:text-white/90">{{ $s->ip_address }}</code>
-                            <span class="text-theme-xs text-gray-500 dark:text-gray-400">{{ Str::limit($s->user_agent, 60) }}</span>
+                        <div class="flex min-w-0 items-center gap-3">
+                            <span class="grid size-8 shrink-0 place-items-center rounded-lg bg-gray-100 text-gray-500 dark:bg-white/[0.05] dark:text-gray-400">
+                                <svg class="size-4 stroke-current" viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+                            </span>
+                            <div class="min-w-0">
+                                <code class="block text-theme-sm font-medium text-gray-800 dark:text-white/90">{{ $s->ip_address }}</code>
+                                <span class="mt-0.5 block truncate text-theme-xs text-gray-400 dark:text-gray-500">{{ Str::limit($s->user_agent, 60) }}</span>
+                            </div>
                         </div>
                         <div class="flex shrink-0 items-center gap-2">
-                            @if($s->id === $currentSessionId)<span class="rounded-full bg-brand-50 px-2.5 py-0.5 text-theme-xs font-medium text-brand-600 dark:bg-brand-500/15 dark:text-brand-400">{{ __('This device') }}</span>@endif
+                            @if($s->id === $currentSessionId)<span class="rounded-full bg-brand-50 px-2.5 py-0.5 text-theme-xs font-semibold text-brand-600 dark:bg-brand-500/15 dark:text-brand-400">{{ __('This device') }}</span>@endif
                             <span class="text-theme-xs text-gray-500 dark:text-gray-400">{{ \Carbon\Carbon::createFromTimestamp($s->last_activity)->format('d M Y, H:i') }}</span>
                         </div>
                     </li>
@@ -175,16 +205,32 @@
 
         <!-- Login history -->
         <div class="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03] sm:p-6 lg:col-span-2">
-            <h2 class="text-base font-semibold text-gray-800 dark:text-white/90">{{ __('Login history') }}</h2>
+            <div class="flex items-center gap-3">
+                <span class="grid size-9 shrink-0 place-items-center rounded-lg bg-cyan-500/10 text-cyan-600 dark:bg-cyan-500/15 dark:text-cyan-400">
+                    <svg class="size-4.5 stroke-current" viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" y1="12" x2="3" y2="12"/></svg>
+                </span>
+                <h2 class="text-base font-semibold text-gray-800 dark:text-white/90">{{ __('Login history') }}</h2>
+            </div>
             <ul class="mt-4">
                 @forelse($loginHistory as $attempt)
-                    <li class="flex items-center justify-between gap-4 border-b border-gray-100 py-3 last:border-0 dark:border-gray-800">
-                        @if($attempt->successful)
-                            <span class="rounded-full bg-success-50 px-2.5 py-0.5 text-theme-xs font-medium text-success-600 dark:bg-success-500/15 dark:text-success-500">{{ __('Success') }}</span>
-                        @else
-                            <span class="rounded-full bg-error-50 px-2.5 py-0.5 text-theme-xs font-medium text-error-600 dark:bg-error-500/15 dark:text-error-500">{{ __('Failed') }}</span>
-                        @endif
-                        <span class="text-theme-xs text-gray-500 dark:text-gray-400">{{ $attempt->ip_address }} · {{ $attempt->created_at->format('d M Y, H:i') }}</span>
+                    <li class="flex items-center justify-between gap-4 rounded-xl border border-gray-100 px-4 py-3 last:border-0 dark:border-gray-800">
+                        <div class="flex min-w-0 items-center gap-3">
+                            @if($attempt->successful)
+                                <span class="grid size-8 shrink-0 place-items-center rounded-lg bg-success-50 text-success-600 dark:bg-success-500/15 dark:text-success-400">
+                                    <svg class="size-4 stroke-current" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                                </span>
+                                <span class="rounded-full bg-success-50 px-2.5 py-0.5 text-theme-xs font-semibold text-success-600 dark:bg-success-500/15 dark:text-success-400">{{ __('Success') }}</span>
+                            @else
+                                <span class="grid size-8 shrink-0 place-items-center rounded-lg bg-error-50 text-error-600 dark:bg-error-500/15 dark:text-error-400">
+                                    <svg class="size-4 stroke-current" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
+                                </span>
+                                <span class="rounded-full bg-error-50 px-2.5 py-0.5 text-theme-xs font-semibold text-error-600 dark:bg-error-500/15 dark:text-error-400">{{ __('Failed') }}</span>
+                            @endif
+                        </div>
+                        <div class="flex min-w-0 shrink items-center gap-3 text-theme-xs text-gray-500 dark:text-gray-400">
+                            <code class="shrink-0 rounded bg-gray-100 px-1.5 py-0.5 font-mono dark:bg-white/[0.05]">{{ $attempt->ip_address }}</code>
+                            <span class="shrink-0">{{ $attempt->created_at->format('d M Y, H:i') }}</span>
+                        </div>
                     </li>
                 @empty
                     <li class="py-10 text-center text-theme-sm text-gray-500 dark:text-gray-400">{{ __('No login history yet.') }}</li>

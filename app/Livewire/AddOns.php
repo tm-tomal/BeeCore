@@ -161,6 +161,8 @@ class AddOns extends Component
             'starts_at' => now(),
         ]);
 
+        \App\Services\SmsGateway::creditSmsAddon($assignment);
+
         AuditLog::record('addon.assigned', $assignment, ['addon_id' => $addon->id], tenantId: $data['assignTenantId']);
 
         $this->reset(['assignTenantId', 'assignAddonId']);
@@ -185,6 +187,8 @@ class AddOns extends Component
         abort_unless($assignment->addon?->is_active && ! $assignment->addon->archived_at, 422, 'This add-on is no longer available.');
 
         $assignment->update(['status' => 'active', 'starts_at' => now(), 'assigned_by' => auth()->id()]);
+
+        \App\Services\SmsGateway::creditSmsAddon($assignment);
 
         AuditLog::record('addon.request_approved', $assignment, ['addon_id' => $assignment->addon_id], tenantId: $assignment->tenant_id);
         session()->flash('message', 'Add-on request approved and activated.');

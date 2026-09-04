@@ -10,6 +10,7 @@ use App\Models\TenantSmsBalance;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Http;
 use Livewire\Livewire;
 use Tests\TestCase;
 
@@ -48,17 +49,58 @@ class SmsManagementConsoleTest extends TestCase
         $this->assertStringNotContainsString('abc', $raw);
     }
 
-    public function test_test_sms_logs_delivered_only_when_provider_active(): void
+    public function test_super_admin_can_send_a_real_test_sms(): void
     {
         $admin = User::factory()->create();
-        $provider = SmsProvider::create(['name' => 'Manual', 'slug' => 'manual', 'provider' => 'manual', 'price_per_sms' => 0.5, 'is_active' => false]);
+        $provider = SmsProvider::create([
+            'name' => 'smsq.global', 'slug' => 'smsq-global', 'provider' => 'smsq',
+            'sender_id' => '8809617602056', 'price_per_sms' => 0.35, 'is_active' => true,
+            'credentials' => ['api_key' => 'key', 'client_id' => 'client'],
+        ]);
 
-        Livewire::actingAs($admin)->test(SmsManagement::class)->call('sendTestSms', $provider->id);
-        $this->assertDatabaseHas('sms_logs', ['sms_provider_id' => $provider->id, 'status' => 'failed']);
+        Http::fake([
+            'https://api.smsq.global/api/v2/SendSMS' => Http::response(['ErrorCode' => 0, 'ErrorDescription' => 'Success', 'Data' => []]),
+        ]);
 
-        $provider->update(['is_active' => true]);
-        Livewire::actingAs($admin)->test(SmsManagement::class)->call('sendTestSms', $provider->id);
-        $this->assertDatabaseHas('sms_logs', ['sms_provider_id' => $provider->id, 'status' => 'delivered']);
+        Livewire::actingAs($admin)
+            ->test(SmsManagement::class)
+            ->call('openTestSms', $provider->id)
+            ->set('testRecipient', '01700000000')
+            ->set('testMessage', 'BeeCore test')
+            ->call('sendTestSms')
+            ->assertHasNoErrors();
+
+        $this->assertDatabaseHas('sms_logs', [
+            'sms_provider_id' => $provider->id,
+            'recipient' => '8801700000000',
+            'status' => 'sent',
+        ]);
+    }
+
+    public function test_failed_gateway_response_is_logged_as_failed(): void
+    {
+        $admin = User::factory()->create();
+        $provider = SmsProvider::create([
+            'name' => 'smsq.global', 'slug' => 'smsq-global-2', 'provider' => 'smsq',
+            'sender_id' => '8809617602056', 'price_per_sms' => 0.35, 'is_active' => true,
+            'credentials' => ['api_key' => 'key', 'client_id' => 'client'],
+        ]);
+
+        Http::fake([
+            'https://api.smsq.global/api/v2/SendSMS' => Http::response(['ErrorCode' => 1, 'ErrorDescription' => 'Invalid Sender', 'Data' => []]),
+        ]);
+
+        Livewire::actingAs($admin)
+            ->test(SmsManagement::class)
+            ->call('openTestSms', $provider->id)
+            ->set('testRecipient', '01700000000')
+            ->set('testMessage', 'BeeCore test')
+            ->call('sendTestSms');
+
+        $this->assertDatabaseHas('sms_logs', [
+            'sms_provider_id' => $provider->id,
+            'status' => 'failed',
+        ]);
     }
 
     public function test_super_admin_can_add_sms_credit_to_a_tenant(): void

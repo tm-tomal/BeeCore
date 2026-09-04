@@ -12,11 +12,12 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
 use Livewire\Livewire;
+use Tests\Concerns\CreatesPlanSubscriptions;
 use Tests\TestCase;
 
 class DataManagementConsoleTest extends TestCase
 {
-    use RefreshDatabase;
+    use RefreshDatabase, CreatesPlanSubscriptions;
 
     private function tenant(): Tenant
     {
@@ -63,6 +64,7 @@ class DataManagementConsoleTest extends TestCase
     {
         $admin = User::factory()->create();
         $tenant = $this->tenant();
+        $this->attachActivePlan($tenant, customerLimit: 100);
 
         $csv = "name,email,phone,package_name\nJohn Doe,john@example.com,0170000000,Basic\nJane Roe,jane@example.com,0180000000,Pro\n";
         $file = UploadedFile::fake()->createWithContent('customers.csv', $csv);

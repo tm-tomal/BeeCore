@@ -47,4 +47,33 @@ class ImpersonationTest extends TestCase
             'action' => 'tenant.impersonation.ended',
         ]);
     }
+
+    public function test_super_admin_can_login_to_tenant_workspace_from_platform_users(): void
+    {
+        $admin = User::factory()->create();
+        $tenant = Tenant::create(['name' => 'Demo ISP', 'slug' => 'demoisp', 'status' => 'active', 'currency' => 'BDT', 'timezone' => 'UTC']);
+        $staff = User::factory()->create([
+            'role' => User::ROLE_TENANT_ADMIN,
+            'tenant_id' => $tenant->id,
+            'status' => 'active',
+        ]);
+
+        Livewire::actingAs($admin)
+            ->test(\App\Livewire\PlatformUsers::class)
+            ->call('impersonateTenant', $staff->id)
+            ->assertRedirect(route('dashboard'));
+
+        $this->assertDatabaseHas('audit_logs', [
+            'tenant_id' => $tenant->id,
+            'user_id' => $admin->id,
+            'action' => 'tenant.impersonation.started',
+        ]);
+
+        $this->actingAs($admin)->get('/dashboard')
+            ->assertSessionHas('impersonated_tenant_id', $tenant->id)
+            ->assertSee('Demo ISP')
+            ->assertSee('Exit workspace');
+
+        $this->actingAs($admin)->get('/customers')->assertOk();
+    }
 }

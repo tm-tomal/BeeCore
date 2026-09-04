@@ -366,6 +366,7 @@ class SaasBilling extends Component
         if ($addon && $addon->status === 'pending_approval') {
             $addon->update(['status' => 'active']);
             AuditLog::record('addon.request_approved', $addon, ['addon_id' => $addon->addon_id, 'amount' => $addon->price], tenantId: $invoice->tenant_id);
+            \App\Services\SmsGateway::creditSmsAddon($addon);
         }
     }
 

@@ -6,11 +6,12 @@ use App\Models\User;
 use App\Models\Tenant;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Livewire\Livewire;
+use Tests\Concerns\CreatesPlanSubscriptions;
 use Tests\TestCase;
 
 class CustomerCrudTest extends TestCase
 {
-    use RefreshDatabase;
+    use RefreshDatabase, CreatesPlanSubscriptions;
 
     public function test_can_view_customers(): void
     {
@@ -26,6 +27,7 @@ class CustomerCrudTest extends TestCase
     {
         $tenant = Tenant::create(['name' => 'Demo', 'slug' => 'demo', 'status' => 'active', 'currency' => 'BDT', 'timezone' => 'UTC']);
         $user = User::factory()->create(['tenant_id' => $tenant->id, 'role' => User::ROLE_TENANT_ADMIN]);
+        $this->attachActivePlan($tenant, customerLimit: 100);
 
         Livewire::actingAs($user)
             ->test(\App\Livewire\Customers::class)

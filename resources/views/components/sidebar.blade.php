@@ -170,6 +170,7 @@
                         [
                             'heading' => 'Workspace',
                             'items' => [
+                                ['route' => 'isp-team', 'label' => 'Team & staff', 'icon' => 'users', 'roles' => [\App\Models\User::ROLE_SUPER_ADMIN, \App\Models\User::ROLE_TENANT_ADMIN]],
                                 ['route' => 'isp-subscription', 'label' => 'My BeeCore plan', 'icon' => 'repeat', 'roles' => [\App\Models\User::ROLE_SUPER_ADMIN, \App\Models\User::ROLE_TENANT_ADMIN]],
                                 ['route' => 'isp-addons', 'label' => 'Add-on store', 'icon' => 'box', 'roles' => [\App\Models\User::ROLE_SUPER_ADMIN, \App\Models\User::ROLE_TENANT_ADMIN]],
                                 ['route' => 'support', 'label' => 'Support', 'icon' => 'help', 'roles' => [\App\Models\User::ROLE_SUPER_ADMIN, \App\Models\User::ROLE_TENANT_ADMIN, \App\Models\User::ROLE_SUPPORT]],

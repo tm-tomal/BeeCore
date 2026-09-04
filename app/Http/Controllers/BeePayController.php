@@ -317,6 +317,7 @@ class BeePayController
             $addon = TenantAddon::query()->where('tenant_id', $intent->tenant_id)->find($meta['tenant_addon_id']);
             if ($addon && $addon->status === 'pending_approval') {
                 $addon->update(['status' => 'active']);
+                \App\Services\SmsGateway::creditSmsAddon($addon);
             }
         }
 

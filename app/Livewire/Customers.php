@@ -8,6 +8,7 @@ use App\Models\Package;
 use App\Models\User;
 use App\Support\AuthorizesRoles;
 use App\Support\CurrentTenant;
+use App\Support\PlanQuota;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 use Livewire\Component;
@@ -110,6 +111,21 @@ class Customers extends Component
         $this->validate();
 
         $tenantId = app(CurrentTenant::class)->id();
+
+        if (! $this->isEditing) {
+            $tenant = app(CurrentTenant::class)->resolve();
+            $gate = $tenant ? PlanQuota::check($tenant, PlanQuota::CUSTOMERS) : ['allowed' => true];
+
+            if (! $gate['allowed']) {
+                $this->viewMode = 'index';
+                session()->flash('plan_error', $gate + [
+                    'actionUrl' => route('isp-subscription'),
+                    'actionLabel' => __('View plans & upgrade'),
+                ]);
+
+                return;
+            }
+        }
 
         DB::transaction(function () use ($tenantId) {
             $package = $this->package_id

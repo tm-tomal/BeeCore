@@ -5,6 +5,7 @@ namespace App\Livewire;
 use App\Models\AuditLog;
 use App\Models\Tenant;
 use App\Models\User;
+use App\Support\PlanQuota;
 use Illuminate\Validation\Rule;
 use Livewire\Attributes\Layout;
 use Livewire\Component;
@@ -84,6 +85,24 @@ class PlatformUsers extends Component
             return;
         }
 
+        // A tenant cannot receive staff beyond its BeeCore plan's staff limit.
+        $staffRoles = [User::ROLE_TENANT_ADMIN, User::ROLE_FINANCE, User::ROLE_SUPPORT, User::ROLE_NETWORK_ENGINEER];
+        if (! $this->userId && in_array($validated['role'], $staffRoles, true) && filled($validated['tenantId'])) {
+            $tenant = Tenant::find($validated['tenantId']);
+            if ($tenant) {
+                $gate = PlanQuota::check($tenant, PlanQuota::STAFF);
+                if (! $gate['allowed']) {
+                    $this->showModal = false;
+                    session()->flash('plan_error', $gate + [
+                        'actionUrl' => route('tenant-details', $tenant),
+                        'actionLabel' => __('Open tenant subscription'),
+                    ]);
+
+                    return;
+                }
+            }
+        }
+
         $attributes = [
             'name' => $validated['name'],
             'email' => $validated['email'],
@@ -105,6 +124,24 @@ class PlatformUsers extends Component
 
         $this->showModal = false;
         session()->flash('message', $this->userId ? 'User updated.' : 'User created.');
+    }
+
+    public function impersonateTenant(int $id)
+    {
+        $this->assertSuperAdmin();
+
+        $target = User::findOrFail($id);
+        abort_unless($target->tenant_id, 422, 'This account is not attached to a tenant workspace.');
+        abort_unless($target->status === 'active', 422, 'This account is inactive.');
+
+        $tenant = Tenant::query()->where('status', 'active')->findOrFail($target->tenant_id);
+
+        session()->put('impersonated_tenant_id', $tenant->id);
+        session()->put('impersonated_tenant_name', $tenant->name);
+        session()->migrate(true);
+        AuditLog::record('tenant.impersonation.started', $tenant, tenantId: $tenant->id);
+
+        return redirect()->route('dashboard');
     }
 
     public function delete(int $id): void

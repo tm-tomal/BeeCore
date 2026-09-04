@@ -35,6 +35,11 @@ class SmsManagement extends Component
     public ?int $creditTenantId = null;
     public int $creditAmount = 100;
 
+    // Test send form
+    public ?int $testProviderId = null;
+    public string $testRecipient = '';
+    public string $testMessage = '';
+
     // Log filters
     public string $statusFilter = '';
 
@@ -153,22 +158,57 @@ class SmsManagement extends Component
         session()->flash('message', 'SMS provider archived.');
     }
 
-    public function sendTestSms(int $id): void
+    public function openTestSms(int $id): void
     {
         $this->assertSuperAdmin();
         $p = SmsProvider::findOrFail($id);
+        $this->testProviderId = $p->id;
+        $this->testRecipient = '';
+        $this->testMessage = 'This is a test SMS from BeeCore via '.$p->name.'.';
+        $this->resetValidation();
+    }
+
+    public function cancelTestSms(): void
+    {
+        $this->testProviderId = null;
+        $this->resetValidation();
+    }
+
+    public function sendTestSms(): void
+    {
+        $this->assertSuperAdmin();
+
+        $data = $this->validate([
+            'testRecipient' => ['required', 'string', 'max:20', 'regex:/^[0-9+\- ]+$/'],
+            'testMessage' => ['required', 'string', 'max:1000'],
+        ]);
+
+        $p = SmsProvider::findOrFail($this->testProviderId);
+
+        if (! $p->is_active) {
+            session()->flash('message', 'Activate this provider before sending a test SMS.');
+
+            return;
+        }
+
+        $result = \App\Services\SmsGateway::send($data['testRecipient'], $data['testMessage'], $p);
 
         $log = SmsLog::create([
             'sms_provider_id' => $p->id,
-            'recipient' => '01700000000',
-            'message' => 'BeeCore test SMS via '.$p->name,
-            'status' => $p->is_active ? 'delivered' : 'failed',
-            'cost' => $p->is_active ? $p->price_per_sms : 0,
+            'recipient' => $result['recipient'],
+            'message' => $data['testMessage'],
+            'status' => $result['ok'] ? 'sent' : 'failed',
+            'cost' => $result['ok'] ? $p->price_per_sms : 0,
             'created_at' => now(),
         ]);
 
         AuditLog::record('sms.test_sent', $log, ['provider_id' => $p->id, 'status' => $log->status]);
-        session()->flash('message', 'Test SMS logged as '.$log->status.'.');
+
+        $this->testProviderId = null;
+
+        session()->flash('message', $result['ok']
+            ? 'Test SMS sent to '.$result['recipient'].' via '.$p->name.'.'
+            : 'Test SMS failed: '.$result['error']);
     }
 
     // --- Balances ---

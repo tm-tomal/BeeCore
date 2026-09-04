@@ -5,6 +5,7 @@ use App\Models\Reseller;
 use App\Models\User;
 use App\Support\AuthorizesRoles;
 use App\Support\CurrentTenant;
+use App\Support\PlanQuota;
 use Livewire\Component;
 use Livewire\WithPagination;
 use Livewire\Attributes\Layout;
@@ -63,6 +64,21 @@ class Resellers extends Component {
     public function save() {
         $this->validate();
         $tenantId = app(CurrentTenant::class)->id();
+
+        if (! $this->isEditing) {
+            $tenant = app(CurrentTenant::class)->resolve();
+            $gate = $tenant ? PlanQuota::check($tenant, PlanQuota::RESELLERS) : ['allowed' => true];
+
+            if (! $gate['allowed']) {
+                $this->viewMode = 'index';
+                session()->flash('plan_error', $gate + [
+                    'actionUrl' => route('isp-subscription'),
+                    'actionLabel' => __('View plans & upgrade'),
+                ]);
+
+                return;
+            }
+        }
 
         $attributes = [
             'name' => $this->name,

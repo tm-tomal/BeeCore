@@ -259,6 +259,7 @@ Route::middleware('auth')->group(function () {
         })->middleware('role:super_admin,tenant_admin,finance,support,network_engineer')->name('reports.print');
         Route::get('/settings', App\Livewire\IspSettings::class)->middleware('role:super_admin,tenant_admin')->name('isp-settings');
         Route::get('/gateway', App\Livewire\IspGateway::class)->middleware('role:super_admin,tenant_admin')->name('isp-gateway');
+        Route::get('/team', App\Livewire\IspTeam::class)->middleware('role:super_admin,tenant_admin')->name('isp-team');
         Route::get('/subscription', App\Livewire\IspSubscription::class)->middleware('role:super_admin,tenant_admin')->name('isp-subscription');
         Route::get('/add-on-market', App\Livewire\IspAddons::class)->middleware('role:super_admin,tenant_admin')->name('isp-addons');
         Route::get('/support', App\Livewire\IspSupport::class)->middleware('role:super_admin,tenant_admin,support')->name('support');

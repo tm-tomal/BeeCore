@@ -9,6 +9,7 @@ use App\Models\DataExport;
 use App\Models\Invoice;
 use App\Models\SystemSetting;
 use App\Models\Tenant;
+use App\Support\PlanQuota;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
@@ -144,7 +145,23 @@ class DataManagement extends Component
 
         $rows = array_map('str_getcsv', file($this->importFile->getRealPath()));
         $header = array_map('trim', array_shift($rows));
+        $candidates = collect($rows)->filter(fn ($row) => count($row) >= count($header))->count();
         $imported = 0;
+
+        // A tenant can never be bulk-imported beyond what its plan allows.
+        $tenant = Tenant::find($data['importTenantId']);
+        if ($tenant && $candidates > 0) {
+            $gate = PlanQuota::check($tenant, PlanQuota::CUSTOMERS, $candidates);
+            if (! $gate['allowed']) {
+                session()->flash('plan_error', $gate + [
+                    'actionUrl' => route('tenant-details', $tenant),
+                    'actionLabel' => __('Open tenant subscription'),
+                ]);
+                $this->reset(['importFile']);
+
+                return;
+            }
+        }
 
         foreach ($rows as $row) {
             if (count($row) < count($header)) {

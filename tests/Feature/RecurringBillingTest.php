@@ -11,15 +11,17 @@ use App\Models\Tenant;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Livewire\Livewire;
+use Tests\Concerns\CreatesPlanSubscriptions;
 use Tests\TestCase;
 
 class RecurringBillingTest extends TestCase
 {
-    use RefreshDatabase;
+    use RefreshDatabase, CreatesPlanSubscriptions;
 
     public function test_customer_can_be_assigned_a_tenant_package_subscription(): void
     {
         [$tenant, $user] = $this->tenantActor('assignment');
+        $this->attachActivePlan($tenant, customerLimit: 100);
         $package = $this->package($tenant, 'Fiber 20', 1200);
 
         Livewire::actingAs($user)

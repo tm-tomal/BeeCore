@@ -8,10 +8,11 @@ use App\Models\TenantSubscription;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Livewire\Livewire;
+use Tests\Concerns\CreatesPlanSubscriptions;
 use Tests\TestCase;
 
 class RemainingPanelsTest extends TestCase {
-    use RefreshDatabase;
+    use RefreshDatabase, CreatesPlanSubscriptions;
 
     public function test_all_panels_load(): void {
         $tenant = Tenant::create(['name' => 'Demo', 'slug' => 'demo', 'status' => 'active', 'currency' => 'BDT', 'timezone' => 'UTC']);
@@ -167,6 +168,7 @@ class RemainingPanelsTest extends TestCase {
     {
         $tenant = Tenant::create(['name' => 'Demo', 'slug' => 'demo', 'status' => 'active', 'currency' => 'BDT', 'timezone' => 'UTC']);
         $user = User::factory()->create(['tenant_id' => $tenant->id, 'role' => User::ROLE_TENANT_ADMIN]);
+        $this->attachActivePlan($tenant, resellerLimit: 100);
 
         Livewire::actingAs($user)
             ->test(\App\Livewire\Resellers::class)

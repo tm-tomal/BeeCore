@@ -7,11 +7,12 @@ use App\Models\Tenant;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Livewire\Livewire;
+use Tests\Concerns\CreatesPlanSubscriptions;
 use Tests\TestCase;
 
 class SuperAdminControlsTest extends TestCase
 {
-    use RefreshDatabase;
+    use RefreshDatabase, CreatesPlanSubscriptions;
 
     public function test_super_admin_can_open_platform_management_pages(): void
     {
@@ -37,6 +38,7 @@ class SuperAdminControlsTest extends TestCase
     {
         $admin = User::factory()->create();
         $tenant = $this->tenant();
+        $this->attachActivePlan($tenant, staffLimit: 100);
 
         Livewire::actingAs($admin)
             ->test(PlatformUsers::class)
