@@ -1,8 +1,108 @@
 import Alpine from 'alpinejs';
+import L from 'leaflet';
 
 import { refreshCableMaps } from './cable-map.js';
 
 window.Alpine = Alpine;
+window.L = L;
+
+// ---- Reusable single-location map (customer address picker / profile map) ----
+// Blade renders a <div data-address-map> (kept inside wire:ignore) and, when
+// editable, two hidden inputs referenced by data-lat-input / data-lng-input.
+// Clicking or dragging the marker writes the coordinates into those inputs and
+// dispatches an "input" event so Livewire stores them on the model.
+const beePinIcon = () =>
+    L.divIcon({
+        className: '',
+        html: '<span style="display:block;width:18px;height:18px;border-radius:9999px;background:#465FFF;border:3px solid #fff;box-shadow:0 3px 10px rgba(70,95,255,.45);"></span>',
+        iconSize: [18, 18],
+        iconAnchor: [9, 9],
+    });
+
+const beeTileLayer = (map) =>
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        maxZoom: 19,
+        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+    }).addTo(map);
+
+function initBeeLocationMap(container) {
+    if (container.dataset.beeMapReady === '1') {
+        return;
+    }
+
+    const editable = container.dataset.editable === '1';
+    const latInput = container.dataset.latInput ? document.querySelector(container.dataset.latInput) : null;
+    const lngInput = container.dataset.lngInput ? document.querySelector(container.dataset.lngInput) : null;
+
+    let lat = parseFloat(container.dataset.lat || '');
+    let lng = parseFloat(container.dataset.lng || '');
+    let hasCoords = Number.isFinite(lat) && Number.isFinite(lng);
+
+    if (!hasCoords && latInput && lngInput && latInput.value !== '' && lngInput.value !== '') {
+        lat = parseFloat(latInput.value);
+        lng = parseFloat(lngInput.value);
+        hasCoords = Number.isFinite(lat) && Number.isFinite(lng);
+    }
+
+    if (!hasCoords) {
+        lat = 23.685;
+        lng = 90.3563;
+    }
+
+    const map = L.map(container, { scrollWheelZoom: false }).setView([lat, lng], hasCoords ? 15 : 7);
+    beeTileLayer(map);
+
+    let marker = null;
+
+    const placeMarker = (newLat, newLng, { fly = false } = {}) => {
+        if (!Number.isFinite(newLat) || !Number.isFinite(newLng)) {
+            return;
+        }
+        if (marker) {
+            marker.setLatLng([newLat, newLng]);
+        } else {
+            marker = L.marker([newLat, newLng], { icon: beePinIcon(), draggable: editable }).addTo(map);
+            marker.on('dragend', () => {
+                const { lat: mkLat, lng: mkLng } = marker.getLatLng();
+                syncInputs(mkLat, mkLng);
+            });
+        }
+        if (fly) {
+            map.flyTo([newLat, newLng], 15);
+        }
+    };
+
+    const syncInputs = (newLat, newLng) => {
+        if (latInput) {
+            latInput.value = newLat.toFixed(6);
+            latInput.dispatchEvent(new Event('input', { bubbles: true }));
+        }
+        if (lngInput) {
+            lngInput.value = newLng.toFixed(6);
+            lngInput.dispatchEvent(new Event('input', { bubbles: true }));
+        }
+    };
+
+    if (editable) {
+        map.on('click', (event) => {
+            placeMarker(event.latlng.lat, event.latlng.lng, { fly: true });
+            syncInputs(event.latlng.lat, event.latlng.lng);
+        });
+    }
+
+    if (hasCoords) {
+        placeMarker(lat, lng);
+    }
+
+    container.dataset.beeMapReady = '1';
+    container._beeMap = map;
+}
+
+function refreshBeeLocationMaps() {
+    document.querySelectorAll('[data-address-map]').forEach(initBeeLocationMap);
+}
+
+window.refreshBeeLocationMaps = refreshBeeLocationMaps;
 
 // Livewire boots its own Alpine instance on components, so we only start
 // Alpine manually on standalone pages (auth, static views) that lack one.
@@ -183,6 +283,7 @@ function registerLivewireHooks() {
             refreshCharts();
             animateNumbers(document);
             refreshCableMaps();
+            refreshBeeLocationMaps();
         });
     });
 }
@@ -211,4 +312,5 @@ document.addEventListener('DOMContentLoaded', () => {
     animateNumbers(document);
     registerLivewireHooks();
     refreshCableMaps();
+    refreshBeeLocationMaps();
 });

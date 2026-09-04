@@ -223,6 +223,7 @@ Route::middleware('auth')->group(function () {
 
     Route::middleware('tenant-context')->group(function () {
         Route::get('/customers', App\Livewire\Customers::class)->middleware('role:super_admin,tenant_admin,support,network_engineer')->name('customers');
+        Route::get('/customers/{customer}', App\Livewire\CustomerProfile::class)->middleware('role:super_admin,tenant_admin,support,network_engineer')->name('customers.show');
         Route::get('/packages', App\Livewire\Packages::class)->middleware('role:super_admin,tenant_admin')->name('packages');
         Route::get('/billing', App\Livewire\Billing::class)->middleware('role:super_admin,tenant_admin,finance')->name('billing');
         Route::get('/billing/invoices/{invoice}/print', function (\App\Models\Invoice $invoice) {

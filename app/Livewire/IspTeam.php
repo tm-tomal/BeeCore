@@ -16,6 +16,9 @@ class IspTeam extends Component
 {
     use AuthorizesRoles;
 
+    public string $tab = 'members';
+    public bool $showAddForm = false;
+
     public string $name = '';
     public string $email = '';
     public string $role = User::ROLE_FINANCE;
@@ -29,21 +32,66 @@ class IspTeam extends Component
         $this->authorizeRoles(User::ROLE_SUPER_ADMIN, User::ROLE_TENANT_ADMIN);
     }
 
-    /** Roles a workspace admin may assign to team members. */
-    private function assignableRoles(): array
+    /**
+     * Roles shown on the Team page. The workspace admin is presented as the
+     * fixed "ISP Owner"; the remaining roles are assignable staff seats.
+     */
+    private function roleCatalog(): array
     {
         return [
-            User::ROLE_TENANT_ADMIN => 'Workspace admin',
-            User::ROLE_FINANCE => 'Finance',
-            User::ROLE_SUPPORT => 'Support',
-            User::ROLE_NETWORK_ENGINEER => 'Network engineer',
+            User::ROLE_TENANT_ADMIN => [
+                'label' => 'ISP Owner',
+                'description' => 'Owns this ISP workspace — full access including billing and team management.',
+                'fixed' => true,
+            ],
+            User::ROLE_FINANCE => [
+                'label' => 'Finance',
+                'description' => 'Records payments, verifies transfers and manages billing.',
+                'fixed' => false,
+            ],
+            User::ROLE_SUPPORT => [
+                'label' => 'Support',
+                'description' => 'Helps customers — tickets, problems and daily support work.',
+                'fixed' => false,
+            ],
+            User::ROLE_NETWORK_ENGINEER => [
+                'label' => 'Network engineer',
+                'description' => 'Operates the network — devices, cable map and connectivity.',
+                'fixed' => false,
+            ],
         ];
     }
 
-    public function openForm(): void
+    private function assignableRoles(): array
+    {
+        $assignable = [];
+
+        foreach ($this->roleCatalog() as $role => $meta) {
+            if (! $meta['fixed']) {
+                $assignable[$role] = $meta['label'];
+            }
+        }
+
+        return $assignable;
+    }
+
+    public function switchTab(string $tab): void
+    {
+        $this->tab = in_array($tab, ['roles', 'members'], true) ? $tab : 'members';
+    }
+
+    public function openAdd(?string $role = null): void
     {
         $this->reset(['name', 'email', 'password', 'gateError']);
-        $this->role = User::ROLE_FINANCE;
+        $this->role = in_array($role, array_keys($this->assignableRoles()), true) ? $role : User::ROLE_FINANCE;
+        $this->resetValidation();
+        $this->showAddForm = true;
+    }
+
+    public function closeAdd(): void
+    {
+        $this->showAddForm = false;
+        $this->reset(['name', 'email', 'password', 'gateError']);
         $this->resetValidation();
     }
 
@@ -79,8 +127,7 @@ class IspTeam extends Component
             'email' => $user->email,
         ], tenantId: $tenant->id);
 
-        $this->reset(['name', 'email', 'password', 'gateError']);
-        $this->role = User::ROLE_FINANCE;
+        $this->closeAdd();
         session()->flash('message', 'Team member added.');
     }
 
@@ -90,15 +137,7 @@ class IspTeam extends Component
         $user = $tenant->users()->findOrFail($userId);
 
         abort_if($user->id === auth()->id(), 422, 'You cannot change your own access.');
-
-        if ($user->role === User::ROLE_TENANT_ADMIN && $user->status === 'active') {
-            $activeAdmins = $tenant->users()
-                ->where('role', User::ROLE_TENANT_ADMIN)
-                ->where('status', 'active')
-                ->whereKeyNot($user->id)
-                ->count();
-            abort_if($activeAdmins === 0, 422, 'You cannot deactivate the last active workspace admin.');
-        }
+        abort_if($user->role === User::ROLE_TENANT_ADMIN, 422, 'The ISP Owner account is fixed — manage it from the BeeCore platform.');
 
         $user->update(['status' => $user->status === 'active' ? 'inactive' : 'active']);
         AuditLog::record('tenant.staff.status_changed', $user, ['status' => $user->status], tenantId: $tenant->id);
@@ -111,15 +150,7 @@ class IspTeam extends Component
         $user = $tenant->users()->findOrFail($userId);
 
         abort_if($user->id === auth()->id(), 422, 'You cannot remove your own account.');
-
-        if ($user->role === User::ROLE_TENANT_ADMIN) {
-            $activeAdmins = $tenant->users()
-                ->where('role', User::ROLE_TENANT_ADMIN)
-                ->where('status', 'active')
-                ->whereKeyNot($user->id)
-                ->count();
-            abort_if($activeAdmins === 0, 422, 'You cannot remove the last active workspace admin.');
-        }
+        abort_if($user->role === User::ROLE_TENANT_ADMIN, 422, 'The ISP Owner account is fixed — manage it from the BeeCore platform.');
 
         AuditLog::record('tenant.staff.removed', $user, ['email' => $user->email], tenantId: $tenant->id);
         $user->delete();
@@ -129,11 +160,11 @@ class IspTeam extends Component
     public function render()
     {
         $tenant = app(CurrentTenant::class)->resolve();
-        $roleLabels = $this->assignableRoles();
+        $roleCatalog = $this->roleCatalog();
 
         $members = $tenant
             ? $tenant->users()
-                ->whereIn('role', array_keys($roleLabels))
+                ->whereIn('role', array_keys($roleCatalog))
                 ->orderByRaw("(status = 'active') DESC")
                 ->orderBy('name')
                 ->get()
@@ -149,7 +180,8 @@ class IspTeam extends Component
         return view('livewire.isp-team', [
             'tenant' => $tenant,
             'members' => $members,
-            'roleLabels' => $roleLabels,
+            'membersByRole' => $members->groupBy('role'),
+            'roleCatalog' => $roleCatalog,
             'currentUser' => auth()->user(),
             'usage' => $usage,
             'limit' => $limit,

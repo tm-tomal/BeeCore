@@ -221,9 +221,18 @@ class IspSubscription extends Component
 
         $invoices = SaasInvoice::query()
             ->where('tenant_id', $tenant->id)
-            ->with(['subscription.plan', 'payments'])
+            ->with(['subscription.plan', 'addon.addon', 'payments'])
             ->latest('id')
             ->paginate(8);
+
+        $openInvoice = $subscription
+            ? SaasInvoice::query()
+                ->where('tenant_id', $tenant->id)
+                ->where('tenant_subscription_id', $subscription->id)
+                ->whereIn('status', ['pending', 'overdue'])
+                ->orderBy('due_date')
+                ->first()
+            : null;
 
         $modes = $tenant->isAutomatic() ? ['automatic', 'both'] : ['manual', 'both'];
 
@@ -231,6 +240,7 @@ class IspSubscription extends Component
             'workspace' => $tenant,
             'subscription' => $subscription,
             'invoices' => $invoices,
+            'openInvoice' => $openInvoice,
             'plans' => SaasPlan::query()
                 ->where('is_active', true)
                 ->whereNull('archived_at')

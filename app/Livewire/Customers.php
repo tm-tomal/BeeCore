@@ -43,6 +43,14 @@ class Customers extends Component
     public $pppoe_username = '';
     public $pppoe_password = '';
 
+    public $address_house = '';
+    public $address_street = '';
+    public $address_area = '';
+    public $address_city = '';
+    public $address_postcode = '';
+    public $address_latitude = '';
+    public $address_longitude = '';
+
     protected function rules(): array
     {
         $tenantId = app(CurrentTenant::class)->id();
@@ -64,7 +72,7 @@ class Customers extends Component
     public function create()
     {
         $this->resetValidation();
-        $this->reset(['name', 'email', 'phone', 'status', 'package_name', 'package_id', 'billing_cycle', 'next_billing_date', 'pppoe_username', 'pppoe_password', 'customerId']);
+        $this->reset(['name', 'email', 'phone', 'status', 'package_name', 'package_id', 'billing_cycle', 'next_billing_date', 'pppoe_username', 'pppoe_password', 'customerId', 'address_house', 'address_street', 'address_area', 'address_city', 'address_postcode', 'address_latitude', 'address_longitude']);
         $this->billing_cycle = 'monthly';
         $this->next_billing_date = today()->toDateString();
         $this->isEditing = false;
@@ -102,6 +110,14 @@ class Customers extends Component
         $this->pppoe_username = $customer->activeSubscription?->pppoe_username ?? '';
         $this->pppoe_password = '';
 
+        $this->address_house = (string) ($customer->address['house'] ?? '');
+        $this->address_street = (string) ($customer->address['street'] ?? '');
+        $this->address_area = (string) ($customer->address['area'] ?? '');
+        $this->address_city = (string) ($customer->address['city'] ?? '');
+        $this->address_postcode = (string) ($customer->address['postcode'] ?? '');
+        $this->address_latitude = (string) ($customer->address['latitude'] ?? '');
+        $this->address_longitude = (string) ($customer->address['longitude'] ?? '');
+
         $this->isEditing = true;
         $this->viewMode = 'create';
     }
@@ -137,6 +153,7 @@ class Customers extends Component
                 'phone' => $this->phone,
                 'status' => $this->status,
                 'package_name' => $package?->name ?? $this->package_name,
+                'address' => $this->buildAddressArray(),
             ];
 
             $customer = $this->isEditing
@@ -220,5 +237,31 @@ class Customers extends Component
     private function customers()
     {
         return Customer::query()->where('tenant_id', app(CurrentTenant::class)->id());
+    }
+
+    /**
+     * Assemble the JSON address payload saved on the customer row. Only filled
+     * parts are stored; coordinates need a valid lat + lng pair.
+     */
+    private function buildAddressArray(): ?array
+    {
+        $address = [];
+
+        foreach (['house', 'street', 'area', 'city', 'postcode'] as $key) {
+            $value = trim((string) $this->{'address_'.$key});
+            if ($value !== '') {
+                $address[$key] = $value;
+            }
+        }
+
+        $lat = trim((string) $this->address_latitude);
+        $lng = trim((string) $this->address_longitude);
+
+        if ($lat !== '' && $lng !== '' && is_numeric($lat) && is_numeric($lng)) {
+            $address['latitude'] = (string) round((float) $lat, 6);
+            $address['longitude'] = (string) round((float) $lng, 6);
+        }
+
+        return $address ?: null;
     }
 }

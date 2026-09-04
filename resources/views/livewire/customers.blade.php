@@ -107,6 +107,9 @@
                             </td>
                             <td class="px-5 py-4">
                                 <div class="flex items-center justify-end gap-1.5">
+                                    <a href="{{ route('customers.show', $customer) }}" title="{{ __('View customer') }}" class="grid h-8 w-8 place-items-center rounded-lg border border-gray-200 text-gray-500 transition hover:border-brand-300 hover:bg-brand-50 hover:text-brand-600 dark:border-gray-800 dark:text-gray-400 dark:hover:border-brand-500/40 dark:hover:bg-brand-500/10 dark:hover:text-brand-400">
+                                        <svg class="size-4 stroke-current" viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                                    </a>
                                     <button type="button" wire:click="edit({{ $customer->id }})" title="{{ __('Edit customer') }}" class="grid h-8 w-8 place-items-center rounded-lg border border-gray-200 text-gray-500 transition hover:border-brand-300 hover:bg-brand-50 hover:text-brand-600 dark:border-gray-800 dark:text-gray-400 dark:hover:border-brand-500/40 dark:hover:bg-brand-500/10 dark:hover:text-brand-400">
                                         <svg class="size-4 stroke-current" viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
                                     </button>
@@ -290,6 +293,62 @@
                 @else
                     <p class="mt-3 text-theme-xs text-gray-500 dark:text-gray-400">{{ __('Saving without a package will cancel any existing active subscription.') }}</p>
                 @endif
+            </section>
+
+            <!-- Address & map -->
+            <section class="rounded-2xl border border-gray-200 bg-white p-5 shadow-theme-xs dark:border-gray-800 dark:bg-white/[0.03] sm:p-6">
+                <div class="mb-4 flex items-center gap-2.5">
+                    <span class="grid h-7 w-7 place-items-center rounded-lg bg-brand-50 text-brand-600 dark:bg-brand-500/15 dark:text-brand-400">
+                        <svg class="size-4 stroke-current" viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+                    </span>
+                    <div>
+                        <h2 class="text-base font-semibold text-gray-800 dark:text-white/90">{{ __('Address & location') }}</h2>
+                        <p class="mt-0.5 text-theme-xs text-gray-500 dark:text-gray-400">{{ __('Where is this subscriber connected? Fill the address and drop a pin on the map — it shows on their profile page.') }}</p>
+                    </div>
+                </div>
+
+                <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                    <div>
+                        <label for="customer-house" class="mb-1.5 block text-theme-sm font-medium text-gray-700 dark:text-gray-400">{{ __('House / Flat') }}</label>
+                        <input id="customer-house" type="text" wire:model="address_house" class="h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-theme-sm text-gray-800 shadow-theme-xs placeholder:text-gray-400 focus:border-brand-300 focus:ring-3 focus:ring-brand-500/10 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30" placeholder="{{ __('e.g. House 12') }}">
+                    </div>
+                    <div class="sm:col-span-2 lg:col-span-1">
+                        <label for="customer-street" class="mb-1.5 block text-theme-sm font-medium text-gray-700 dark:text-gray-400">{{ __('Street / Road') }}</label>
+                        <input id="customer-street" type="text" wire:model="address_street" class="h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-theme-sm text-gray-800 shadow-theme-xs placeholder:text-gray-400 focus:border-brand-300 focus:ring-3 focus:ring-brand-500/10 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30" placeholder="{{ __('e.g. Road 8, Banani') }}">
+                    </div>
+                    <div>
+                        <label for="customer-area" class="mb-1.5 block text-theme-sm font-medium text-gray-700 dark:text-gray-400">{{ __('Area / Colony') }}</label>
+                        <input id="customer-area" type="text" wire:model="address_area" class="h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-theme-sm text-gray-800 shadow-theme-xs placeholder:text-gray-400 focus:border-brand-300 focus:ring-3 focus:ring-brand-500/10 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30">
+                    </div>
+                    <div>
+                        <label for="customer-city" class="mb-1.5 block text-theme-sm font-medium text-gray-700 dark:text-gray-400">{{ __('City / District') }}</label>
+                        <input id="customer-city" type="text" wire:model="address_city" class="h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-theme-sm text-gray-800 shadow-theme-xs placeholder:text-gray-400 focus:border-brand-300 focus:ring-3 focus:ring-brand-500/10 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30" placeholder="{{ __('e.g. Dhaka') }}">
+                    </div>
+                    <div>
+                        <label for="customer-postcode" class="mb-1.5 block text-theme-sm font-medium text-gray-700 dark:text-gray-400">{{ __('Postcode') }}</label>
+                        <input id="customer-postcode" type="text" wire:model="address_postcode" class="h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-theme-sm text-gray-800 shadow-theme-xs placeholder:text-gray-400 focus:border-brand-300 focus:ring-3 focus:ring-brand-500/10 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30">
+                    </div>
+                </div>
+
+                <div class="mt-4">
+                    <input type="hidden" id="customer-latitude" wire:model="address_latitude">
+                    <input type="hidden" id="customer-longitude" wire:model="address_longitude">
+                    <div wire:ignore>
+                        <div
+                            id="customer-address-map"
+                            data-address-map
+                            data-editable="1"
+                            data-lat-input="#customer-latitude"
+                            data-lng-input="#customer-longitude"
+                            class="h-64 w-full overflow-hidden rounded-xl border border-gray-200 dark:border-gray-800"
+                            aria-label="{{ __('Customer location map') }}"
+                        ></div>
+                    </div>
+                    <p class="mt-2 flex items-center gap-1.5 text-theme-xs text-gray-500 dark:text-gray-400">
+                        <svg class="size-3.5 shrink-0 stroke-current text-brand-500 dark:text-brand-400" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>
+                        {{ __('Click on the map (or drag the pin) to set the exact service location.') }}
+                    </p>
+                </div>
             </section>
 
             <!-- Actions -->
