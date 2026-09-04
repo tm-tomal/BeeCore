@@ -19,20 +19,20 @@
     <!-- Page header -->
     <header class="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div>
-            <p class="text-theme-xs font-semibold uppercase tracking-wider text-brand-500 dark:text-brand-400">ISP workspace</p>
-            <h1 class="mt-1 text-title-sm font-bold text-gray-800 dark:text-white/90">Team &amp; roles</h1>
-            <p class="mt-1 text-theme-sm text-gray-500 dark:text-gray-400">The ISP Owner runs the workspace — staff are added and assigned to a role. Each active member uses one seat of your BeeCore plan.</p>
+            <p class="text-theme-xs font-semibold uppercase tracking-wider text-brand-500 dark:text-brand-400">{{ __('ISP workspace') }}</p>
+            <h1 class="mt-1 text-title-sm font-bold text-gray-800 dark:text-white/90">{{ __('Team & roles') }}</h1>
+            <p class="mt-1 text-theme-sm text-gray-500 dark:text-gray-400">{{ __('The ISP Owner runs the workspace — staff are added and assigned to a role. Each active member uses one seat of your BeeCore plan.') }}</p>
         </div>
         <div class="flex shrink-0 items-center gap-2">
             @if($limit !== null)
                 <span class="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-theme-xs font-semibold {{ $usage >= $limit ? 'bg-error-50 text-error-600 dark:bg-error-500/15 dark:text-error-400' : 'bg-success-50 text-success-600 dark:bg-success-500/15 dark:text-success-400' }}">
                     <span class="size-1.5 rounded-full {{ $usage >= $limit ? 'bg-error-500' : 'bg-success-500' }}"></span>
-                    {{ $usage }} / {{ $limit }} seats used
+                    {{ $usage }} / {{ $limit }} {{ __('seats used') }}
                 </span>
             @else
                 <span class="inline-flex items-center gap-1.5 rounded-full bg-gray-100 px-3 py-1.5 text-theme-xs font-semibold text-gray-500 dark:bg-white/[0.05] dark:text-gray-400">
                     <span class="size-1.5 rounded-full bg-gray-400"></span>
-                    {{ $planName ? $planName.' plan' : 'No active plan' }}
+                    {{ $planName ? __(':name plan', ['name' => $planName]) : __('No active plan') }}
                 </span>
             @endif
         </div>
@@ -49,21 +49,21 @@
 
     <!-- Tabs -->
     <div class="flex flex-wrap items-center justify-between gap-3">
-        <div class="inline-flex rounded-xl border border-gray-200 bg-gray-100 p-1 dark:border-gray-700 dark:bg-white/[0.04]" role="tablist" aria-label="Team sections">
+        <div class="inline-flex rounded-xl border border-gray-200 bg-gray-100 p-1 dark:border-gray-700 dark:bg-white/[0.04]" role="tablist" aria-label="{{ __('Team sections') }}">
             <button type="button" role="tab" wire:click="switchTab('members')" aria-selected="{{ $tab === 'members' ? 'true' : 'false' }}" class="inline-flex items-center gap-2 rounded-lg px-4 py-2 text-theme-sm font-medium transition {{ $tab === 'members' ? 'bg-white text-gray-900 shadow-theme-xs dark:bg-gray-800 dark:text-white' : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200' }}">
                 <svg class="size-4 stroke-current" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
-                Members
+                {{ __('Members') }}
                 <span class="rounded-full bg-gray-200 px-1.5 py-0.5 text-[10px] font-bold text-gray-600 dark:bg-white/[0.08] dark:text-gray-300">{{ $members->count() }}</span>
             </button>
             <button type="button" role="tab" wire:click="switchTab('roles')" aria-selected="{{ $tab === 'roles' ? 'true' : 'false' }}" class="inline-flex items-center gap-2 rounded-lg px-4 py-2 text-theme-sm font-medium transition {{ $tab === 'roles' ? 'bg-white text-gray-900 shadow-theme-xs dark:bg-gray-800 dark:text-white' : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200' }}">
                 <svg class="size-4 stroke-current" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
-                Roles
+                {{ __('Roles') }}
             </button>
         </div>
         @if($tab === 'members')
             <button type="button" wire:click="openAdd()" class="inline-flex items-center justify-center gap-2 rounded-lg bg-brand-500 px-4 py-2.5 text-theme-sm font-medium text-white shadow-theme-xs transition hover:bg-brand-600">
                 <svg class="size-4 stroke-current" viewBox="0 0 24 24" fill="none" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>
-                Add member
+                {{ __('Add member') }}
             </button>
         @endif
     </div>
@@ -72,17 +72,17 @@
         <!-- Members -->
         <section class="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-theme-xs dark:border-gray-800 dark:bg-white/[0.03]">
             <div class="border-b border-gray-100 px-5 py-4 dark:border-gray-800">
-                <h2 class="text-base font-semibold text-gray-800 dark:text-white/90">All members</h2>
-                <p class="mt-0.5 text-theme-xs text-gray-500 dark:text-gray-400">Everyone with access to this workspace, grouped under the role they hold.</p>
+                <h2 class="text-base font-semibold text-gray-800 dark:text-white/90">{{ __('All members') }}</h2>
+                <p class="mt-0.5 text-theme-xs text-gray-500 dark:text-gray-400">{{ __('Everyone with access to this workspace, grouped under the role they hold.') }}</p>
             </div>
             <div class="w-full overflow-x-auto">
                 <table class="min-w-full">
                     <thead>
                         <tr class="border-b border-gray-200 bg-gray-50/50 dark:border-gray-800 dark:bg-white/[0.02]">
-                            <th class="px-5 py-3.5 text-left text-theme-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Member</th>
-                            <th class="px-5 py-3.5 text-left text-theme-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Role</th>
-                            <th class="px-5 py-3.5 text-center text-theme-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Status</th>
-                            <th class="px-5 py-3.5 text-right text-theme-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Actions</th>
+                            <th class="px-5 py-3.5 text-left text-theme-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">{{ __('Member') }}</th>
+                            <th class="px-5 py-3.5 text-left text-theme-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">{{ __('Role') }}</th>
+                            <th class="px-5 py-3.5 text-center text-theme-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">{{ __('Status') }}</th>
+                            <th class="px-5 py-3.5 text-right text-theme-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">{{ __('Actions') }}</th>
                         </tr>
                     </thead>
                     <tbody class="divide-y divide-gray-100 dark:divide-gray-800">
@@ -98,7 +98,7 @@
                                             <p class="flex items-center gap-2 truncate text-theme-sm font-semibold text-gray-800 dark:text-white/90">
                                                 {{ $member->name }}
                                                 @if($isSelf)
-                                                    <span class="rounded-full bg-brand-50 px-1.5 py-0.5 text-[10px] font-bold uppercase text-brand-600 dark:bg-brand-500/15 dark:text-brand-400">You</span>
+                                                    <span class="rounded-full bg-brand-50 px-1.5 py-0.5 text-[10px] font-bold uppercase text-brand-600 dark:bg-brand-500/15 dark:text-brand-400">{{ __('You') }}</span>
                                                 @endif
                                             </p>
                                             <p class="mt-0.5 truncate text-theme-xs text-gray-400 dark:text-gray-500">{{ $member->email }}</p>
@@ -110,33 +110,33 @@
                                 </td>
                                 <td class="px-5 py-4 text-center">
                                     @if($member->status === 'active')
-                                        <span class="inline-flex items-center gap-1 rounded-full bg-success-50 px-2.5 py-1 text-theme-xs font-semibold text-success-600 dark:bg-success-500/15 dark:text-success-500"><span class="size-1.5 rounded-full bg-success-500"></span>Active</span>
+                                        <span class="inline-flex items-center gap-1 rounded-full bg-success-50 px-2.5 py-1 text-theme-xs font-semibold text-success-600 dark:bg-success-500/15 dark:text-success-500"><span class="size-1.5 rounded-full bg-success-500"></span>{{ __('Active') }}</span>
                                     @else
-                                        <span class="inline-flex items-center gap-1 rounded-full bg-gray-100 px-2.5 py-1 text-theme-xs font-semibold text-gray-500 dark:bg-white/[0.05] dark:text-gray-400"><span class="size-1.5 rounded-full bg-gray-400"></span>Inactive</span>
+                                        <span class="inline-flex items-center gap-1 rounded-full bg-gray-100 px-2.5 py-1 text-theme-xs font-semibold text-gray-500 dark:bg-white/[0.05] dark:text-gray-400"><span class="size-1.5 rounded-full bg-gray-400"></span>{{ __('Inactive') }}</span>
                                     @endif
                                 </td>
                                 <td class="px-5 py-4">
                                     @if($member->role === 'tenant_admin')
                                         <p class="flex items-center justify-end gap-1 text-theme-xs font-medium text-gray-400 dark:text-gray-500">
                                             <svg class="size-3.5 stroke-current" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
-                                            {{ $isSelf ? 'You are the ISP Owner' : 'ISP Owner' }}
+                                            {{ $isSelf ? __('You are the ISP Owner') : __('ISP Owner') }}
                                         </p>
                                     @elseif($isSelf)
                                         <p class="text-right text-theme-xs text-gray-400 dark:text-gray-500">—</p>
                                     @else
                                         <div class="flex items-center justify-end gap-1.5">
                                             @if($member->status === 'active')
-                                                <button type="button" wire:click="toggleActive({{ $member->id }})" wire:confirm="Deactivate this member? They will lose access immediately." class="inline-flex items-center justify-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3 py-2 text-theme-xs font-medium text-gray-700 transition hover:border-warning-300 hover:bg-warning-50 hover:text-warning-600 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 dark:hover:border-warning-500/40 dark:hover:bg-warning-500/10 dark:hover:text-warning-400">
+                                                <button type="button" wire:click="toggleActive({{ $member->id }})" wire:confirm="{{ __('Deactivate this member? They will lose access immediately.') }}" class="inline-flex items-center justify-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3 py-2 text-theme-xs font-medium text-gray-700 transition hover:border-warning-300 hover:bg-warning-50 hover:text-warning-600 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 dark:hover:border-warning-500/40 dark:hover:bg-warning-500/10 dark:hover:text-warning-400">
                                                     <svg class="size-3.5 stroke-current" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="4.93 4.93 19.07 19.07"/></svg>
-                                                    Deactivate
+                                                    {{ __('Deactivate') }}
                                                 </button>
                                             @else
                                                 <button type="button" wire:click="toggleActive({{ $member->id }})" class="inline-flex items-center justify-center gap-1.5 rounded-lg border border-success-200 bg-success-50 px-3 py-2 text-theme-xs font-medium text-success-600 transition hover:border-success-300 hover:bg-success-100 dark:border-success-500/25 dark:bg-success-500/10 dark:text-success-400">
                                                     <svg class="size-3.5 stroke-current" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
-                                                    Activate
+                                                    {{ __('Activate') }}
                                                 </button>
                                             @endif
-                                            <button type="button" wire:click="remove({{ $member->id }})" wire:confirm="Remove this member from the workspace?" class="grid h-8 w-8 place-items-center rounded-lg border border-error-200 bg-error-50 text-error-600 transition hover:border-error-300 hover:bg-error-100 dark:border-error-500/25 dark:bg-error-500/10 dark:text-error-400">
+                                            <button type="button" wire:click="remove({{ $member->id }})" wire:confirm="{{ __('Remove this member from the workspace?') }}" class="grid h-8 w-8 place-items-center rounded-lg border border-error-200 bg-error-50 text-error-600 transition hover:border-error-300 hover:bg-error-100 dark:border-error-500/25 dark:bg-error-500/10 dark:text-error-400">
                                                 <svg class="size-4 stroke-current" viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
                                             </button>
                                         </div>
@@ -150,8 +150,8 @@
                                         <span class="mx-auto grid size-12 place-items-center rounded-full bg-gray-100 text-gray-400 dark:bg-white/[0.05] dark:text-gray-500">
                                             <svg class="size-6 stroke-current" viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
                                         </span>
-                                        <p class="mt-4 text-theme-sm font-medium text-gray-700 dark:text-gray-300">No team members yet</p>
-                                        <p class="mt-1 text-theme-xs text-gray-500 dark:text-gray-400">Use “Add member” to give a role to your first staff member.</p>
+                                        <p class="mt-4 text-theme-sm font-medium text-gray-700 dark:text-gray-300">{{ __('No team members yet') }}</p>
+                                        <p class="mt-1 text-theme-xs text-gray-500 dark:text-gray-400">{{ __('Use “Add member” to give a role to your first staff member.') }}</p>
                                     </div>
                                 </td>
                             </tr>
@@ -164,8 +164,8 @@
         <!-- Roles overview -->
         <section class="rounded-2xl border border-gray-200 bg-white p-5 shadow-theme-xs dark:border-gray-800 dark:bg-white/[0.03] sm:p-6">
             <div class="flex flex-col gap-1">
-                <h2 class="text-base font-semibold text-gray-800 dark:text-white/90">Roles in this workspace</h2>
-                <p class="text-theme-xs text-gray-500 dark:text-gray-400">Each role decides what a member can do. Assign a member to a role, or add a fresh member below.</p>
+                <h2 class="text-base font-semibold text-gray-800 dark:text-white/90">{{ __('Roles in this workspace') }}</h2>
+                <p class="text-theme-xs text-gray-500 dark:text-gray-400">{{ __('Each role decides what a member can do. Assign a member to a role, or add a fresh member below.') }}</p>
             </div>
 
             <div class="mt-5 grid gap-4 lg:grid-cols-2">
@@ -186,7 +186,7 @@
                                         @if($roleMetaItem['fixed'])
                                             <span class="inline-flex items-center gap-1 rounded-full bg-brand-500 px-2 py-0.5 text-[10px] font-bold uppercase text-white">
                                                 <svg class="size-3 stroke-current" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
-                                                Fixed
+                                                {{ __('Fixed') }}
                                             </span>
                                         @endif
                                     </div>
@@ -196,14 +196,11 @@
                         </div>
 
                         <div class="mt-4 flex items-center gap-3 border-t border-gray-100 pt-3 dark:border-gray-800">
-                            <p class="text-theme-xs text-gray-500 dark:text-gray-400">
-                                <span class="text-lg font-bold text-gray-800 dark:text-white/90">{{ $activeCount }}</span>
-                                active of {{ $assigned->count() }}
-                            </p>
+                            <p class="text-theme-xs text-gray-500 dark:text-gray-400">{{ __(':active active of :total', ['active' => $activeCount, 'total' => $assigned->count()]) }}</p>
                             @unless($roleMetaItem['fixed'])
                                 <button type="button" wire:click="openAdd('{{ $roleKey }}')" class="ml-auto inline-flex items-center justify-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3 py-2 text-theme-xs font-medium text-gray-700 transition hover:border-brand-300 hover:bg-brand-50 hover:text-brand-600 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 dark:hover:border-brand-500/40 dark:hover:bg-brand-500/10 dark:hover:text-brand-400">
                                     <svg class="size-3.5 stroke-current" viewBox="0 0 24 24" fill="none" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>
-                                    Assign member
+                                    {{ __('Assign member') }}
                                 </button>
                             @endunless
                         </div>
@@ -214,11 +211,11 @@
                                     <span class="size-1.5 rounded-full {{ $assignedMember->status === 'active' ? 'bg-success-500' : 'bg-gray-300 dark:bg-gray-600' }}"></span>
                                     {{ $assignedMember->name }}
                                     @if($assignedMember->id === $currentUser->id)
-                                        <span class="font-semibold text-brand-600 dark:text-brand-400">(you)</span>
+                                        <span class="font-semibold text-brand-600 dark:text-brand-400">{{ __('(you)') }}</span>
                                     @endif
                                 </span>
                             @empty
-                                <p class="text-theme-xs text-gray-400 dark:text-gray-500">{{ $roleMetaItem['fixed'] ? 'This workspace is owned by an ISP Owner.' : 'No members assigned to this role yet.' }}</p>
+                                <p class="text-theme-xs text-gray-400 dark:text-gray-500">{{ $roleMetaItem['fixed'] ? __('This workspace is owned by an ISP Owner.') : __('No members assigned to this role yet.') }}</p>
                             @endforelse
                         </div>
 
@@ -227,7 +224,7 @@
                                 <div class="flex items-center justify-between gap-3">
                                     <p class="flex items-center gap-1.5 text-theme-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
                                         <svg class="size-3.5 stroke-current" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
-                                        Feature access
+                                        {{ __('Feature access') }}
                                     </p>
                                     <span class="text-theme-xs text-gray-400 dark:text-gray-500">{{ __('tap to toggle') }}</span>
                                 </div>
@@ -264,8 +261,8 @@
                             <svg class="size-5 stroke-current" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
                         </span>
                         <div>
-                            <h2 id="team-add-title" class="text-base font-bold text-gray-800 dark:text-white/90">Add team member</h2>
-                            <p class="mt-0.5 text-theme-xs text-gray-500 dark:text-gray-400">Create a login and assign it to a role.</p>
+                            <h2 id="team-add-title" class="text-base font-bold text-gray-800 dark:text-white/90">{{ __('Add team member') }}</h2>
+                            <p class="mt-0.5 text-theme-xs text-gray-500 dark:text-gray-400">{{ __('Create a login and assign it to a role.') }}</p>
                         </div>
                     </div>
                     <button type="button" wire:click="closeAdd" class="grid size-8 shrink-0 place-items-center rounded-lg text-gray-400 transition hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-white/[0.05] dark:hover:text-gray-300">
@@ -288,18 +285,18 @@
 
                 <form wire:submit="save" class="space-y-4">
                     <div>
-                        <label for="tm-name" class="mb-1.5 block text-theme-sm font-medium text-gray-700 dark:text-gray-400">Name</label>
+                        <label for="tm-name" class="mb-1.5 block text-theme-sm font-medium text-gray-700 dark:text-gray-400">{{ __('Name') }}</label>
                         <input id="tm-name" wire:model="name" type="text" class="h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-theme-sm text-gray-800 shadow-theme-xs placeholder:text-gray-400 focus:border-brand-300 focus:ring-3 focus:ring-brand-500/10 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30" placeholder="e.g. Rakib Hasan">
                         @error('name') <p class="mt-1.5 text-theme-xs text-error-600 dark:text-error-400">{{ $message }}</p> @enderror
                     </div>
                     <div>
-                        <label for="tm-email" class="mb-1.5 block text-theme-sm font-medium text-gray-700 dark:text-gray-400">Email</label>
+                        <label for="tm-email" class="mb-1.5 block text-theme-sm font-medium text-gray-700 dark:text-gray-400">{{ __('Email') }}</label>
                         <input id="tm-email" wire:model="email" type="email" class="h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-theme-sm text-gray-800 shadow-theme-xs placeholder:text-gray-400 focus:border-brand-300 focus:ring-3 focus:ring-brand-500/10 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30" placeholder="staff@yourisp.com">
                         @error('email') <p class="mt-1.5 text-theme-xs text-error-600 dark:text-error-400">{{ $message }}</p> @enderror
                     </div>
                     <div>
-                        <label for="tm-role" class="mb-1.5 block text-theme-sm font-medium text-gray-700 dark:text-gray-400">Role</label>
-                        <p class="mb-2 text-theme-xs text-gray-500 dark:text-gray-400">ISP Owner is fixed — this member gets one of the staff roles.</p>
+                        <label for="tm-role" class="mb-1.5 block text-theme-sm font-medium text-gray-700 dark:text-gray-400">{{ __('Role') }}</label>
+                        <p class="mb-2 text-theme-xs text-gray-500 dark:text-gray-400">{{ __('ISP Owner is fixed — this member gets one of the staff roles.') }}</p>
                         <select id="tm-role" wire:model="role" class="h-11 w-full appearance-none rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-theme-sm text-gray-800 shadow-theme-xs placeholder:text-gray-400 focus:border-brand-300 focus:ring-3 focus:ring-brand-500/10 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30">
                             @foreach($roleCatalog as $value => $meta)
                                 @if(! $meta['fixed'])
@@ -310,15 +307,15 @@
                         @error('role') <p class="mt-1.5 text-theme-xs text-error-600 dark:text-error-400">{{ $message }}</p> @enderror
                     </div>
                     <div>
-                        <label for="tm-password" class="mb-1.5 block text-theme-sm font-medium text-gray-700 dark:text-gray-400">Temporary password</label>
-                        <input id="tm-password" wire:model="password" type="password" autocomplete="new-password" class="h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-theme-sm text-gray-800 shadow-theme-xs placeholder:text-gray-400 focus:border-brand-300 focus:ring-3 focus:ring-brand-500/10 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30" placeholder="Min 8 characters">
+                        <label for="tm-password" class="mb-1.5 block text-theme-sm font-medium text-gray-700 dark:text-gray-400">{{ __('Temporary password') }}</label>
+                        <input id="tm-password" wire:model="password" type="password" autocomplete="new-password" class="h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-theme-sm text-gray-800 shadow-theme-xs placeholder:text-gray-400 focus:border-brand-300 focus:ring-3 focus:ring-brand-500/10 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30" placeholder="{{ __('Min 8 characters') }}">
                         @error('password') <p class="mt-1.5 text-theme-xs text-error-600 dark:text-error-400">{{ $message }}</p> @enderror
                     </div>
                     <div class="flex flex-col-reverse gap-3 pt-1 sm:flex-row sm:justify-end">
-                        <button type="button" wire:click="closeAdd" class="inline-flex items-center justify-center rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-theme-sm font-medium text-gray-700 shadow-theme-xs transition hover:bg-gray-50 hover:text-gray-800 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-white/[0.03] dark:hover:text-gray-100">Cancel</button>
+                        <button type="button" wire:click="closeAdd" class="inline-flex items-center justify-center rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-theme-sm font-medium text-gray-700 shadow-theme-xs transition hover:bg-gray-50 hover:text-gray-800 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-white/[0.03] dark:hover:text-gray-100">{{ __('Cancel') }}</button>
                         <button type="submit" class="inline-flex items-center justify-center gap-2 rounded-lg bg-brand-500 px-5 py-2.5 text-theme-sm font-medium text-white shadow-theme-xs transition hover:bg-brand-600">
                             <svg class="size-4 stroke-current" viewBox="0 0 24 24" fill="none" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>
-                            Add member
+                            {{ __('Add member') }}
                         </button>
                     </div>
                 </form>

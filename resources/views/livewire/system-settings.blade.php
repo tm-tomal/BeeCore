@@ -18,6 +18,65 @@
     @endif
 
     <form wire:submit="save" class="space-y-6">
+        <!-- BeeCore company & support details -->
+        <div class="rounded-2xl border border-gray-200 bg-white p-5 shadow-theme-xs dark:border-gray-800 dark:bg-white/[0.03] sm:p-6">
+            <div class="flex items-center gap-3">
+                <span class="grid size-9 shrink-0 place-items-center rounded-lg bg-brand-500/10 text-brand-600 dark:bg-brand-500/15 dark:text-brand-400">
+                    <svg class="size-4.5 stroke-current" viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21h18"/><path d="M5 21V7l7-4 7 4v14"/><path d="M9 9h.01M9 13h.01M9 17h.01M15 9h.01M15 13h.01M15 17h.01"/></svg>
+                </span>
+                <div>
+                    <h2 class="text-base font-semibold text-gray-800 dark:text-white/90">BeeCore details &amp; support</h2>
+                    <p class="mt-0.5 text-theme-sm text-gray-500 dark:text-gray-400">All public information about the platform — it powers the landing page, sign-in screen and shared contact blocks.</p>
+                </div>
+            </div>
+            <div class="mt-5 space-y-5">
+                <div class="grid gap-5 md:grid-cols-2">
+                    <div>
+                        <label for="ss-tagline" class="mb-1.5 block text-theme-sm font-medium text-gray-700 dark:text-gray-400">Tagline</label>
+                        <input id="ss-tagline" wire:model="platformTagline" type="text" placeholder="e.g. Everything an ISP needs to run" class="h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-theme-sm text-gray-800 shadow-theme-xs placeholder:text-gray-400 focus:border-brand-300 focus:ring-3 focus:ring-brand-500/10 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30 dark:focus:border-brand-800">
+                        @error('platformTagline') <p class="mt-1.5 text-theme-xs text-error-600 dark:text-error-400">{{ $message }}</p> @enderror
+                    </div>
+                    <div>
+                        <label for="ss-hours" class="mb-1.5 block text-theme-sm font-medium text-gray-700 dark:text-gray-400">Support hours</label>
+                        <input id="ss-hours" wire:model="supportHours" type="text" placeholder="e.g. Sat–Thu, 9:00 AM – 6:00 PM" class="h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-theme-sm text-gray-800 shadow-theme-xs placeholder:text-gray-400 focus:border-brand-300 focus:ring-3 focus:ring-brand-500/10 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30 dark:focus:border-brand-800">
+                        @error('supportHours') <p class="mt-1.5 text-theme-xs text-error-600 dark:text-error-400">{{ $message }}</p> @enderror
+                    </div>
+                </div>
+                <div>
+                    <label for="ss-about" class="mb-1.5 block text-theme-sm font-medium text-gray-700 dark:text-gray-400">About the platform</label>
+                    <textarea id="ss-about" wire:model="platformAbout" rows="3" placeholder="Short description shown on the homepage and register page…" class="w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-theme-sm text-gray-800 shadow-theme-xs placeholder:text-gray-400 focus:border-brand-300 focus:ring-3 focus:ring-brand-500/10 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30 dark:focus:border-brand-800"></textarea>
+                    @error('platformAbout') <p class="mt-1.5 text-theme-xs text-error-600 dark:text-error-400">{{ $message }}</p> @enderror
+                </div>
+                <div class="grid gap-5 md:grid-cols-2">
+                    <div>
+                        <label for="ss-support-email" class="mb-1.5 block text-theme-sm font-medium text-gray-700 dark:text-gray-400">Support email</label>
+                        <input id="ss-support-email" wire:model="contactEmail" type="email" placeholder="e.g. support@beecore.com" class="h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-theme-sm text-gray-800 shadow-theme-xs placeholder:text-gray-400 focus:border-brand-300 focus:ring-3 focus:ring-brand-500/10 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30 dark:focus:border-brand-800">
+                        @error('contactEmail') <p class="mt-1.5 text-theme-xs text-error-600 dark:text-error-400">{{ $message }}</p> @enderror
+                    </div>
+                    <div>
+                        <label for="ss-support-phone" class="mb-1.5 block text-theme-sm font-medium text-gray-700 dark:text-gray-400">Support phone / mobile</label>
+                        <input id="ss-support-phone" wire:model="contactPhone" type="text" placeholder="e.g. +880 1XXX-XXXXXX" class="h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-theme-sm text-gray-800 shadow-theme-xs placeholder:text-gray-400 focus:border-brand-300 focus:ring-3 focus:ring-brand-500/10 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30 dark:focus:border-brand-800">
+                        @error('contactPhone') <p class="mt-1.5 text-theme-xs text-error-600 dark:text-error-400">{{ $message }}</p> @enderror
+                    </div>
+                    <div>
+                        <label for="ss-website" class="mb-1.5 block text-theme-sm font-medium text-gray-700 dark:text-gray-400">Website</label>
+                        <input id="ss-website" wire:model="websiteUrl" type="url" placeholder="https://beecore.com" class="h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-theme-sm text-gray-800 shadow-theme-xs placeholder:text-gray-400 focus:border-brand-300 focus:ring-3 focus:ring-brand-500/10 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30 dark:focus:border-brand-800">
+                        @error('websiteUrl') <p class="mt-1.5 text-theme-xs text-error-600 dark:text-error-400">{{ $message }}</p> @enderror
+                    </div>
+                    <div>
+                        <label for="ss-facebook" class="mb-1.5 block text-theme-sm font-medium text-gray-700 dark:text-gray-400">Facebook page</label>
+                        <input id="ss-facebook" wire:model="facebookUrl" type="url" placeholder="https://facebook.com/beecore" class="h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-theme-sm text-gray-800 shadow-theme-xs placeholder:text-gray-400 focus:border-brand-300 focus:ring-3 focus:ring-brand-500/10 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30 dark:focus:border-brand-800">
+                        @error('facebookUrl') <p class="mt-1.5 text-theme-xs text-error-600 dark:text-error-400">{{ $message }}</p> @enderror
+                    </div>
+                </div>
+                <div>
+                    <label for="ss-address" class="mb-1.5 block text-theme-sm font-medium text-gray-700 dark:text-gray-400">Head office / address</label>
+                    <textarea id="ss-address" wire:model="contactAddress" rows="2" placeholder="Company address shown on the landing page footer…" class="w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-theme-sm text-gray-800 shadow-theme-xs placeholder:text-gray-400 focus:border-brand-300 focus:ring-3 focus:ring-brand-500/10 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30 dark:focus:border-brand-800"></textarea>
+                    @error('contactAddress') <p class="mt-1.5 text-theme-xs text-error-600 dark:text-error-400">{{ $message }}</p> @enderror
+                </div>
+            </div>
+        </div>
+
         <!-- Branding -->
         <div class="rounded-2xl border border-gray-200 bg-white p-5 shadow-theme-xs dark:border-gray-800 dark:bg-white/[0.03] sm:p-6">
             <div class="flex items-center gap-3">

@@ -87,7 +87,7 @@ class Tenant extends Model
 
     public function operationModeLabel(): string
     {
-        return $this->isAutomatic() ? 'Automatic' : 'Manual';
+        return $this->isAutomatic() ? __('Automatic') : __('Manual');
     }
 
     public function billingSetting(string $key, mixed $default = null): mixed

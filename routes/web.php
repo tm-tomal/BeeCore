@@ -156,29 +156,10 @@ Route::post('/logout', function (Request $request) {
 })->name('logout')->middleware('auth');
 
 Route::middleware('auth')->group(function () {
-    Route::get('/', function () {
-        return redirect()->route('dashboard');
-    });
-
     Route::get('/dashboard', Dashboard::class)->name('dashboard');
     Route::get('/my-profile', App\Livewire\MyProfile::class)->name('my-profile');
 
     Route::get('/attachments/{attachment}', App\Http\Controllers\AttachmentController::class)->name('attachments.show');
-
-    Route::post('/locale', function (Request $request) {
-        $language = \App\Models\Language::query()->where('code', (string) $request->input('locale'))->where('is_active', true)->first();
-
-        abort_unless($language, 422, 'Unsupported language.');
-
-        session(['locale' => $language->code]);
-        app()->setLocale($language->code);
-
-        if (Auth::check()) {
-            Auth::user()->forceFill(['language' => $language->code])->save();
-        }
-
-        return redirect()->back();
-    })->name('locale.switch');
 
     Route::middleware('super-admin')->group(function () {
         Route::get('/tenants', App\Livewire\Tenants::class)->name('tenants');
@@ -288,6 +269,26 @@ Route::post('/bee-pay/{intent:token}/check', [App\Http\Controllers\BeePayControl
 // bKash calls this callback URL (GET or POST) after the customer approves/cancels on their side.
 Route::match(['get', 'post'], '/bee-pay/bkash/callback', [App\Http\Controllers\BeePayController::class, 'callback'])->name('bee-pay.callback');
 
+// Public locale switcher — works for guests (landing / auth pages) and signed-in users alike.
+Route::match(['get', 'post'], '/locale', function (Request $request) {
+    $language = \App\Models\Language::query()->where('code', (string) $request->input('locale'))->where('is_active', true)->first();
+
+    abort_unless($language, 422, 'Unsupported language.');
+
+    session(['locale' => $language->code]);
+    app()->setLocale($language->code);
+
+    if (Auth::check()) {
+        Auth::user()->forceFill(['language' => $language->code])->save();
+    }
+
+    return redirect()->back();
+})->name('locale.switch');
+
 Route::get('/', function () {
-    return redirect()->route(Auth::check() ? 'dashboard' : 'login');
+    if (Auth::check()) {
+        return redirect()->route('dashboard');
+    }
+
+    return view('landing');
 });

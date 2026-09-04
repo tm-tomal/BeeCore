@@ -53,7 +53,7 @@ class IspSubscription extends Component
     {
         $tenant = Tenant::query()->findOrFail(app(CurrentTenant::class)->id());
 
-        abort_unless($this->eligiblePlan($tenant, $planId) !== null, 422, 'This plan is not available for your workspace type.');
+        abort_unless($this->eligiblePlan($tenant, $planId) !== null, 422, __('This plan is not available for your workspace type.'));
 
         $this->selectedPlanId = $planId;
         $this->billingCycle = $this->billingCycle ?: 'monthly';
@@ -88,7 +88,7 @@ class IspSubscription extends Component
         $plan = $this->eligiblePlan($tenant, (int) $this->selectedPlanId);
 
         if (!$plan) {
-            $this->addError('selectedPlanId', 'This plan is not available for your workspace type.');
+            $this->addError('selectedPlanId', __('This plan is not available for your workspace type.'));
 
             return;
         }
@@ -135,7 +135,7 @@ class IspSubscription extends Component
         $plan = $this->eligiblePlan($tenant, (int) $this->selectedPlanId);
 
         if (!$plan) {
-            $this->addError('selectedPlanId', 'This plan is not available for your workspace type.');
+            $this->addError('selectedPlanId', __('This plan is not available for your workspace type.'));
 
             return;
         }
@@ -176,15 +176,15 @@ class IspSubscription extends Component
                 ]);
                 AuditLog::record('tenant.subscription.created', $subscription, tenantId: $tenant->id);
 
-                session()->flash('message', 'Your '.$plan->name.' plan is active. An invoice for the first period has been created.');
+                session()->flash('message', __('Your :plan plan is active. An invoice for the first period has been created.', ['plan' => $plan->name]));
             } else {
                 if (!in_array($subscription->status, ['active', 'trialing'], true)) {
-                    $this->addError('selectedPlanId', 'Your current subscription is '.$subscription->status.'. Contact the BeeCore Account team to change it.');
+                    $this->addError('selectedPlanId', __('Your current subscription is :status. Contact the BeeCore Account team to change it.', ['status' => __(ucwords(str_replace('_', ' ', (string) $subscription->status)))]));
 
                     return;
                 }
                 if ($subscription->invoices()->whereIn('status', ['pending', 'overdue'])->exists()) {
-                    $this->addError('selectedPlanId', 'You have an unpaid BeeCore invoice. Settle it first, then you can change plans.');
+                    $this->addError('selectedPlanId', __('You have an unpaid BeeCore invoice. Settle it first, then you can change plans.'));
 
                     return;
                 }
@@ -215,7 +215,7 @@ class IspSubscription extends Component
                 ]);
                 AuditLog::record('tenant.subscription.plan_changed', $subscription, tenantId: $tenant->id);
 
-                session()->flash('message', 'Your plan has been changed to '.$plan->name.' — the new price applies from your next billing period.');
+                session()->flash('message', __('Your plan has been changed to :plan — the new price applies from your next billing period.', ['plan' => $plan->name]));
             }
         });
     }
@@ -375,12 +375,12 @@ class IspSubscription extends Component
             } else {
                 // Switch plan on an active/trialing subscription.
                 if (! in_array($subscription->status, ['active', 'trialing'], true)) {
-                    $this->addError('selectedPlanId', 'Your current subscription is '.$subscription->status.'. Contact the BeeCore Account team to change it.');
+                    $this->addError('selectedPlanId', __('Your current subscription is :status. Contact the BeeCore Account team to change it.', ['status' => __(ucwords(str_replace('_', ' ', (string) $subscription->status)))]));
 
                     return;
                 }
                 if ($subscription->invoices()->whereIn('status', ['pending', 'overdue'])->exists()) {
-                    $this->addError('selectedPlanId', 'You have an unpaid BeeCore invoice. Settle it first, then you can change plans.');
+                    $this->addError('selectedPlanId', __('You have an unpaid BeeCore invoice. Settle it first, then you can change plans.'));
 
                     return;
                 }
@@ -447,7 +447,7 @@ class IspSubscription extends Component
             return '';
         }
 
-        return 'Order submitted. The BeeCore Account team will verify your payment and activate your '.$plan->name.' plan — no action is needed from you.';
+        return __('Order submitted. The BeeCore Account team will verify your payment and activate your :plan plan — no action is needed from you.', ['plan' => $plan->name]);
     }
 
     /**
@@ -465,12 +465,12 @@ class IspSubscription extends Component
 
             if ($subscription && $subscription->status !== 'cancelled') {
                 if (! in_array($subscription->status, ['active', 'trialing'], true)) {
-                    $this->addError('selectedPlanId', 'Your current subscription is '.$subscription->status.'. Contact the BeeCore Account team to change it.');
+                    $this->addError('selectedPlanId', __('Your current subscription is :status. Contact the BeeCore Account team to change it.', ['status' => __(ucwords(str_replace('_', ' ', (string) $subscription->status)))]));
 
                     return;
                 }
                 if ($subscription->invoices()->whereIn('status', ['pending', 'overdue'])->exists()) {
-                    $this->addError('selectedPlanId', 'You have an unpaid BeeCore invoice. Settle it first, then you can change plans.');
+                    $this->addError('selectedPlanId', __('You have an unpaid BeeCore invoice. Settle it first, then you can change plans.'));
 
                     return;
                 }

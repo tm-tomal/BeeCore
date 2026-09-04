@@ -26,12 +26,12 @@ class TenantPermissions
     public static function catalog(): array
     {
         return [
-            'customers' => ['label' => 'Customers', 'description' => 'View and manage the customer directory and profiles.'],
-            'billing' => ['label' => 'Billing & payments', 'description' => 'Create invoices, record payments and manage billing.'],
-            'network' => ['label' => 'Network & cable map', 'description' => 'Operate devices, cable map and connectivity.'],
-            'reports' => ['label' => 'Reports', 'description' => 'Open reports, snapshots and printable exports.'],
-            'support' => ['label' => 'Support', 'description' => 'Handle customer support tickets.'],
-            'issues' => ['label' => 'Network issues', 'description' => 'Log and resolve network problems reported on the map.'],
+            'customers' => ['label' => __('Customers'), 'description' => __('View and manage the customer directory and profiles.')],
+            'billing' => ['label' => __('Billing & payments'), 'description' => __('Create invoices, record payments and manage billing.')],
+            'network' => ['label' => __('Network & cable map'), 'description' => __('Operate devices, cable map and connectivity.')],
+            'reports' => ['label' => __('Reports'), 'description' => __('Open reports, snapshots and printable exports.')],
+            'support' => ['label' => __('Support'), 'description' => __('Handle customer support tickets.')],
+            'issues' => ['label' => __('Network issues'), 'description' => __('Log and resolve network problems reported on the map.')],
         ];
     }
 

@@ -469,7 +469,7 @@ class RemainingPanelsTest extends TestCase {
         $this->actingAs($user)
             ->get('/reports/print?from='.now()->startOfMonth()->toDateString().'&to='.now()->toDateString())
             ->assertOk()
-            ->assertSee('BeeCore — ReportCo')
+            ->assertSee('ReportCo')
             ->assertSee('Summary')
             ->assertSee('Print / Save as PDF');
     }

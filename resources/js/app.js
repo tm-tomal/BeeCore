@@ -1,27 +1,106 @@
 import L from 'leaflet';
+import 'leaflet/dist/leaflet.css';
 
 import { refreshCableMaps } from './cable-map.js';
 
+// GoogleMutant (Google tiles for Leaflet) expects a global `L`, so it is
+// imported lazily below — only after `window.L` is assigned.
 window.L = L;
 
 // ---- Reusable single-location map (customer address picker / profile map) ----
 // Blade renders a <div data-address-map> (kept inside wire:ignore) and, when
 // editable, two hidden inputs referenced by data-lat-input / data-lng-input.
-// Clicking or dragging the marker writes the coordinates into those inputs and
-// dispatches an "input" event so Livewire stores them on the model.
-const beePinIcon = () =>
-    L.divIcon({
-        className: '',
-        html: '<span style="display:block;width:18px;height:18px;border-radius:9999px;background:#465FFF;border:3px solid #fff;box-shadow:0 3px 10px rgba(70,95,255,.45);"></span>',
-        iconSize: [18, 18],
-        iconAnchor: [9, 9],
+// Picking a point (click, drag, "my location", search) writes coordinates into
+// those inputs and dispatches an "input" event so Livewire stores them.
+//
+// The picker also works like a real map picker: pan the map left/right and as
+// soon as it stops, the pin drops at the new map centre automatically.
+const beeThemeMode = () => (localStorage.getItem('beecore_theme') === 'dark' ? 'dark' : 'light');
+
+// Google Maps (rich data) powers the basemap. A public browser key is used —
+// the Maps JavaScript API is loaded lazily only when a BeeCore map is on page.
+const GOOGLE_MAPS_KEY = 'AIzaSyBofrHFIF3UDYAgl2UCl_DeosPwH1mQbnI';
+
+// "Dark mode" is done with Google styled-map rules (same roadmap, dark paint).
+const beeGoogleDarkStyles = [
+    { elementType: 'geometry', stylers: [{ color: '#1d2028' }] },
+    { elementType: 'labels.text.stroke', stylers: [{ color: '#1d2028' }] },
+    { elementType: 'labels.text.fill', stylers: [{ color: '#eceff4' }] },
+    { featureType: 'administrative', elementType: 'geometry', stylers: [{ color: '#2c3039' }] },
+    { featureType: 'administrative.country', elementType: 'labels.text.fill', stylers: [{ color: '#a5abb8' }] },
+    { featureType: 'poi', elementType: 'geometry', stylers: [{ color: '#262b34' }] },
+    { featureType: 'poi', elementType: 'labels.text.fill', stylers: [{ color: '#838b99' }] },
+    { featureType: 'road', elementType: 'geometry', stylers: [{ color: '#3a414d' }] },
+    { featureType: 'road', elementType: 'labels.text.fill', stylers: [{ color: '#c3c9d4' }] },
+    { featureType: 'transit', elementType: 'geometry', stylers: [{ color: '#2f353f' }] },
+    { featureType: 'water', elementType: 'geometry', stylers: [{ color: '#10131a' }] },
+    { featureType: 'water', elementType: 'labels.text.fill', stylers: [{ color: '#565e6e' }] },
+];
+
+// Maps currently on screen; used to hot-swap the tile theme when the app theme changes.
+const beeMapThemeables = [];
+
+let googleReadyPromise = null;
+const ensureGoogleMaps = () => {
+    if (googleReadyPromise) return googleReadyPromise;
+
+    googleReadyPromise = new Promise((resolve) => {
+        if (window.google && window.google.maps) {
+            resolve();
+            return;
+        }
+        const callback = '__beeGoogleMapsReady';
+        window[callback] = () => resolve();
+        const script = document.createElement('script');
+        script.src = `https://maps.googleapis.com/maps/api/js?key=${GOOGLE_MAPS_KEY}&v=weekly&loading=async&callback=${callback}`;
+        script.async = true;
+        script.defer = true;
+        script.onerror = () => {
+            window[callback] = undefined;
+            resolve();
+        };
+        document.head.appendChild(script);
     });
 
-const beeTileLayer = (map) =>
+    return googleReadyPromise;
+};
+
+const beeTileLayer = (map) => {
+    const layer = new L.GridLayer.GoogleMutant({
+        type: 'roadmap',
+        maxZoom: 21,
+        styles: beeThemeMode() === 'dark' ? beeGoogleDarkStyles : [],
+        // Keep Google's own floating controls off — Leaflet supplies the zoom.
+        disableDefaultUI: true,
+        mapTypeControl: false,
+        streetViewControl: false,
+        fullscreenControl: false,
+    });
+    return layer.addTo(map);
+};
+
+// If Google ever fails to load (wrong key / URL restriction / no billing),
+// the map still works on plain OpenStreetMap instead of staying blank.
+const beeFallbackLayer = (map) =>
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
         maxZoom: 19,
-        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
     }).addTo(map);
+
+const beePinIcon = () =>
+    L.divIcon({
+        className: 'bee-pin-icon',
+        html: `<svg width="26" height="39" viewBox="0 0 26 39" fill="none" xmlns="http://www.w3.org/2000/svg" style="display:block;filter:drop-shadow(0 6px 10px rgba(15,23,42,.35));">
+                <path d="M13 2C6.7 2 1.5 7.2 1.5 13.5 1.5 22.8 13 37 13 37s11.5-14.2 11.5-23.5C24.5 7.2 19.3 2 13 2Z" fill="#465FFF"/>
+                <path d="M13 2C6.7 2 1.5 7.2 1.5 13.5 1.5 22.8 13 37 13 37s11.5-14.2 11.5-23.5C24.5 7.2 19.3 2 13 2Z" fill="url(#beePinGrad)"/>
+                <circle cx="13" cy="12.8" r="5.4" fill="#fff"/>
+                <circle cx="13" cy="12.8" r="2.3" fill="#465FFF"/>
+                <defs><linearGradient id="beePinGrad" x1="13" y1="2" x2="13" y2="37" gradientUnits="userSpaceOnUse"><stop stop-color="#5B6CFF"/><stop offset="1" stop-color="#3143E0"/></linearGradient></defs>
+              </svg>`,
+        iconSize: [26, 39],
+        iconAnchor: [13, 38],
+        popupAnchor: [0, -34],
+    });
 
 // Nominatim (OpenStreetMap) helpers — free geocoding, no key needed.
 // We restrict every lookup to Bangladesh so we never jump to a world view.
@@ -62,6 +141,20 @@ const beeSetField = (selector, value) => {
     element.dispatchEvent(new Event('input', { bubbles: true }));
 };
 
+// Custom BeeCore pin rendered with the original Google Maps API.
+const beeGooglePinUrl = () => {
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="26" height="39" viewBox="0 0 26 39" fill="none">
+        <defs><linearGradient id="beePinGrad" x1="13" y1="2" x2="13" y2="37" gradientUnits="userSpaceOnUse">
+            <stop stop-color="#5B6CFF"/><stop offset="1" stop-color="#3143E0"/>
+        </linearGradient></defs>
+        <path d="M13 2C6.7 2 1.5 7.2 1.5 13.5 1.5 22.8 13 37 13 37s11.5-14.2 11.5-23.5C24.5 7.2 19.3 2 13 2Z" fill="url(#beePinGrad)"/>
+        <path d="M13 2C6.7 2 1.5 7.2 1.5 13.5 1.5 22.8 13 37 13 37s11.5-14.2 11.5-23.5C24.5 7.2 19.3 2 13 2Z" stroke="#FFFFFF" stroke-opacity="0.35" stroke-width="1"/>
+        <circle cx="13" cy="12.8" r="5.4" fill="#fff"/>
+        <circle cx="13" cy="12.8" r="2.3" fill="#465FFF"/>
+    </svg>`;
+    return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
+};
+
 function initBeeLocationMap(container) {
     if (container.dataset.beeMapReady === '1') {
         return;
@@ -97,8 +190,66 @@ function initBeeLocationMap(container) {
     const requestedZoom = parseInt(container.dataset.defaultZoom || '0', 10);
     const zoom = hasCoords ? 16 : Number.isFinite(requestedZoom) && requestedZoom > 0 ? requestedZoom : 13;
 
-    const map = L.map(container, { scrollWheelZoom: false }).setView([lat, lng], zoom);
-    beeTileLayer(map);
+    // Original Google Maps (native JS API + real Google UI). The Leaflet
+    // fallback code below is legacy/unused.
+    initBeeGoogleMap(container, { editable, latInput, lngInput, fieldSel, lat, lng, hasCoords, zoom });
+    return;
+
+    const map = L.map(container, {
+        // Native-app-style motion: smooth inertia when you fling the map,
+        // fractional zoom steps, and animated tile fade/zoom.
+        inertia: true,
+        inertiaDeceleration: 3200,
+        inertiaMaxSpeed: Infinity,
+        easeLinearity: 0.2,
+        worldCopyJump: true,
+        zoomAnimation: true,
+        zoomAnimationThreshold: 4,
+        fadeAnimation: true,
+        markerZoomAnimation: true,
+        scrollWheelZoom: true,
+        touchZoom: true,
+        doubleClickZoom: true,
+        zoomControl: true,
+        maxZoom: 21,
+    }).setView([lat, lng], zoom);
+
+    // Google tiles load asynchronously (Maps JS API) and follow the app theme.
+    let tileLayer = null;
+    let themePending = false;
+
+    const attachTiles = () => {
+        if (!(window.google && window.google.maps)) {
+            themePending = true; // attach right after the API finishes loading
+            return;
+        }
+        themePending = false;
+        if (tileLayer) {
+            tileLayer.remove();
+        }
+        tileLayer = beeTileLayer(map);
+    };
+
+    const themeable = { apply: attachTiles };
+    beeMapThemeables.push(themeable);
+    map.on('remove', () => {
+        const index = beeMapThemeables.indexOf(themeable);
+        if (index > -1) beeMapThemeables.splice(index, 1);
+    });
+
+    ensureGoogleMaps()
+        .then(() => {
+            if (!container._leaflet_id) return; // map removed while Google was loading
+            if (window.google && window.google.maps) {
+                attachTiles();
+            } else {
+                tileLayer = beeFallbackLayer(map);
+            }
+        })
+        .catch(() => {
+            if (!container._leaflet_id) return;
+            tileLayer = beeFallbackLayer(map);
+        });
 
     let marker = null;
     let deepTimer = null;
@@ -163,9 +314,27 @@ function initBeeLocationMap(container) {
     };
 
     if (editable) {
+        let panArmed = false;
+
+        // Click any spot → pin there.
         map.on('click', (event) => {
+            panArmed = false;
             placeMarker(event.latlng.lat, event.latlng.lng, { fly: true });
             syncInputs(event.latlng.lat, event.latlng.lng);
+            scheduleReverseFill(false);
+        });
+
+        // Pan the map left/right/up/down → the moment it stops the pin drops
+        // at the map centre (auto-place, nothing else to click).
+        map.on('movestart', () => {
+            panArmed = true;
+        });
+        map.on('moveend', () => {
+            if (!panArmed) return;
+            panArmed = false;
+            const center = map.getCenter();
+            placeMarker(center.lat, center.lng, { fly: false });
+            syncInputs(center.lat, center.lng);
             scheduleReverseFill(false);
         });
     }
@@ -288,11 +457,263 @@ function initBeeLocationMap(container) {
     container._beeMap = map;
 }
 
+function initBeeGoogleMap(container, opts) {
+    const { editable, latInput, lngInput, fieldSel, lat, lng, hasCoords, zoom } = opts;
+
+    if (container.dataset.beeMapReady === '1' || container.dataset.beeMapPending === '1') {
+        return;
+    }
+    container.dataset.beeMapPending = '1';
+
+    ensureGoogleMaps().then(() => {
+        if (container.dataset.beeMapReady === '1') return;
+        const g = window.google && window.google.maps;
+        if (!g) {
+            console.warn('BeeCore map: Google Maps API could not be loaded (key / billing / referrer).');
+            return;
+        }
+
+        // ---- Real Google map, original UI included ----
+        const map = new g.Map(container, {
+            center: { lat, lng },
+            zoom,
+            mapTypeId: 'roadmap',
+            fullscreenControl: true,
+            mapTypeControl: false,
+            streetViewControl: false,
+            clickableIcons: false,
+            styles: beeThemeMode() === 'dark' ? beeGoogleDarkStyles : [],
+        });
+
+        // Follow app theme (light/dark) without reloading the page.
+        beeMapThemeables.push({
+            apply: () => map.setOptions({ styles: beeThemeMode() === 'dark' ? beeGoogleDarkStyles : [] }),
+        });
+
+        container.dataset.beeMapReady = '1';
+        delete container.dataset.beeMapPending;
+        container._beeMap = map;
+
+        let marker = null;
+        let currentLat = null;
+        let currentLng = null;
+        let deepTimer = null;
+
+        const scheduleReverseFill = (deep = false) => {
+            if (deepTimer) clearTimeout(deepTimer);
+            deepTimer = setTimeout(() => beeReverseFill(deep), 450);
+        };
+
+        const beeReverseFill = async (deep = false) => {
+            if (!Number.isFinite(currentLat) || !Number.isFinite(currentLng)) return;
+            const results = await beeReverseAddress(currentLat, currentLng);
+            const place = results && results[0];
+            if (!place || !place.address) return;
+            const address = place.address;
+            beeSetField(fieldSel.city, beeDistrictOf(address));
+            beeSetField(fieldSel.area, beeAreaOf(address));
+            beeSetField(fieldSel.postcode, address.postcode);
+            if (deep) {
+                beeSetField(fieldSel.house, address.house_number || '');
+                beeSetField(fieldSel.street, address.road || address.pedestrian || address.footway || '');
+            }
+        };
+
+        const ensureMarker = () => {
+            if (marker) return marker;
+            marker = new g.Marker({
+                position: { lat: currentLat, lng: currentLng },
+                map,
+                draggable: editable,
+                optimized: false,
+                icon: {
+                    url: beeGooglePinUrl(),
+                    scaledSize: new g.Size(26, 39),
+                    anchor: new g.Point(13, 38),
+                },
+            });
+            if (editable) {
+                g.event.addListener(marker, 'dragend', () => {
+                    const p = marker.getPosition();
+                    currentLat = p.lat();
+                    currentLng = p.lng();
+                    syncInputs(currentLat, currentLng);
+                    scheduleReverseFill(false);
+                });
+            }
+            return marker;
+        };
+
+        const setPosition = (mlat, mlng) => {
+            if (!Number.isFinite(mlat) || !Number.isFinite(mlng)) return;
+            currentLat = mlat;
+            currentLng = mlng;
+            ensureMarker().setPosition({ lat: mlat, lng: mlng });
+        };
+
+        const syncInputs = (mlat, mlng) => {
+            if (latInput) {
+                latInput.value = mlat.toFixed(6);
+                latInput.dispatchEvent(new Event('input', { bubbles: true }));
+            }
+            if (lngInput) {
+                lngInput.value = mlng.toFixed(6);
+                lngInput.dispatchEvent(new Event('input', { bubbles: true }));
+            }
+        };
+
+        const placeMarker = (mlat, mlng, { fly = false } = {}) => {
+            setPosition(mlat, mlng);
+            if (fly) {
+                map.panTo({ lat: mlat, lng: mlng });
+            }
+        };
+
+        if (editable) {
+            let panArmed = false;
+
+            // Click a spot → pin there.
+            g.event.addListener(map, 'click', (e) => {
+                panArmed = false;
+                setPosition(e.latLng.lat(), e.latLng.lng());
+                syncInputs(e.latLng.lat(), e.latLng.lng());
+                scheduleReverseFill(false);
+            });
+
+            // Pan the map → as soon as it stops, the pin drops at the centre.
+            g.event.addListener(map, 'dragstart', () => {
+                panArmed = true;
+            });
+            g.event.addListener(map, 'idle', () => {
+                if (!panArmed) return;
+                panArmed = false;
+                const center = map.getCenter();
+                setPosition(center.lat(), center.lng());
+                syncInputs(center.lat(), center.lng());
+                scheduleReverseFill(false);
+            });
+        }
+
+        if (hasCoords) {
+            setPosition(lat, lng);
+        }
+
+        // ---- Address search + autofill (Nominatim, free) ----
+        const shell = container.parentElement;
+        const searchEl = shell ? shell.querySelector('[data-map-search]') : null;
+        const resultsEl = shell ? shell.querySelector('[data-map-results]') : null;
+        const locateBtn = shell ? shell.querySelector('[data-map-locate]') : null;
+
+        if (searchEl && resultsEl) {
+            let hits = [];
+            let searchTimer = null;
+            let clickedInside = false;
+
+            const renderHits = () => {
+                if (hits.length === 0) {
+                    resultsEl.innerHTML = '';
+                    resultsEl.classList.add('hidden');
+                    return;
+                }
+                resultsEl.innerHTML = hits
+                    .map(
+                        (hit, index) => `
+                        <button type="button" data-idx="${index}" class="flex w-full items-start gap-2 rounded-lg px-3 py-2 text-left text-theme-sm text-gray-700 transition hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-white/5">
+                            <svg class="mt-0.5 size-4 shrink-0 stroke-current text-gray-400" viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+                            <span>${hit.display_name || ''}</span>
+                        </button>`,
+                    )
+                    .join('');
+                resultsEl.classList.remove('hidden');
+            };
+
+            const pickHit = (hit) => {
+                const hitLat = parseFloat(hit.lat);
+                const hitLng = parseFloat(hit.lon);
+                if (Number.isFinite(hitLat) && Number.isFinite(hitLng)) {
+                    placeMarker(hitLat, hitLng, { fly: true });
+                    syncInputs(hitLat, hitLng);
+                }
+                const address = hit.address || {};
+                beeSetField(fieldSel.house, address.house_number || '');
+                beeSetField(fieldSel.street, address.road || address.pedestrian || address.footway || '');
+                beeSetField(fieldSel.area, beeAreaOf(address));
+                beeSetField(fieldSel.city, beeDistrictOf(address));
+                beeSetField(fieldSel.postcode, address.postcode || '');
+                searchEl.value = '';
+                resultsEl.innerHTML = '';
+                resultsEl.classList.add('hidden');
+            };
+
+            searchEl.addEventListener('input', () => {
+                if (searchTimer) clearTimeout(searchTimer);
+                const query = searchEl.value.trim();
+                if (query.length < 3) {
+                    resultsEl.innerHTML = '';
+                    resultsEl.classList.add('hidden');
+                    return;
+                }
+                searchTimer = setTimeout(async () => {
+                    const found = await beeSearchAddress(query);
+                    hits = Array.isArray(found) ? found : [];
+                    renderHits();
+                }, 450);
+            });
+
+            searchEl.addEventListener('focus', () => {
+                if (hits.length > 0) resultsEl.classList.remove('hidden');
+            });
+            searchEl.addEventListener('blur', () => {
+                setTimeout(() => {
+                    if (!clickedInside) resultsEl.classList.add('hidden');
+                    clickedInside = false;
+                }, 150);
+            });
+
+            resultsEl.addEventListener('mousedown', () => {
+                clickedInside = true;
+            });
+            resultsEl.addEventListener('click', (event) => {
+                const button = event.target.closest('button[data-idx]');
+                if (!button) return;
+                pickHit(hits[parseInt(button.dataset.idx, 10)] || null);
+            });
+        }
+
+        if (locateBtn && navigator.geolocation) {
+            locateBtn.addEventListener('click', () => {
+                locateBtn.disabled = true;
+                locateBtn.style.opacity = '0.6';
+                navigator.geolocation.getCurrentPosition(
+                    (position) => {
+                        const { latitude, longitude } = position.coords;
+                        placeMarker(latitude, longitude, { fly: true });
+                        syncInputs(latitude, longitude);
+                        scheduleReverseFill(false);
+                        locateBtn.disabled = false;
+                        locateBtn.style.opacity = '';
+                    },
+                    () => {
+                        locateBtn.disabled = false;
+                        locateBtn.style.opacity = '';
+                    },
+                    { enableHighAccuracy: true, timeout: 8000 },
+                );
+            });
+        }
+    });
+}
+
 function refreshBeeLocationMaps() {
     document.querySelectorAll('[data-address-map]').forEach(initBeeLocationMap);
 }
 
 window.refreshBeeLocationMaps = refreshBeeLocationMaps;
+
+// Swap open map tile themes when the app light/dark theme changes.
+window.addEventListener('beecore:theme', () => {
+    beeMapThemeables.forEach((entry) => entry.apply());
+});
 
 // ---- Bee Searchable Select (auto-upgrade every native <select>) ----
 // Turns each plain <select> into a custom, searchable dropdown. The native

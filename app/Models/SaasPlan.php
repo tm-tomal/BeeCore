@@ -53,9 +53,9 @@ class SaasPlan extends Model
     public function operationModeLabel(): string
     {
         return match ($this->operation_mode ?? 'both') {
-            'automatic' => 'Automatic ISPs',
-            'manual' => 'Manual ISPs',
-            default => 'Both types',
+            'automatic' => __('Automatic ISPs'),
+            'manual' => __('Manual ISPs'),
+            default => __('Both types'),
         };
     }
 

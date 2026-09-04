@@ -17,6 +17,14 @@ class SystemSettings extends Component
     use WithFileUploads;
 
     public string $platformName = '';
+    public string $platformTagline = '';
+    public string $platformAbout = '';
+    public string $contactEmail = '';
+    public string $contactPhone = '';
+    public string $contactAddress = '';
+    public string $supportHours = '';
+    public string $websiteUrl = '';
+    public string $facebookUrl = '';
     public string $defaultLanguage = 'en';
     public string $defaultCurrency = 'BDT';
     public string $defaultTimezone = 'Asia/Dhaka';
@@ -40,6 +48,14 @@ class SystemSettings extends Component
         $this->assertSuperAdmin();
 
         $this->platformName = SystemSetting::get('platform_name', 'BeeCore');
+        $this->platformTagline = SystemSetting::get('platform_tagline', '');
+        $this->platformAbout = SystemSetting::get('platform_about', '');
+        $this->contactEmail = SystemSetting::get('contact_email', '');
+        $this->contactPhone = SystemSetting::get('contact_phone', '');
+        $this->contactAddress = SystemSetting::get('contact_address', '');
+        $this->supportHours = SystemSetting::get('support_hours', '');
+        $this->websiteUrl = SystemSetting::get('website_url', '');
+        $this->facebookUrl = SystemSetting::get('facebook_url', '');
         $this->defaultLanguage = SystemSetting::get('default_language', 'en');
         $this->defaultCurrency = SystemSetting::get('default_currency', 'BDT');
         $this->defaultTimezone = SystemSetting::get('default_timezone', 'Asia/Dhaka');
@@ -62,6 +78,14 @@ class SystemSettings extends Component
 
         $data = $this->validate([
             'platformName' => ['required', 'string', 'max:255'],
+            'platformTagline' => ['nullable', 'string', 'max:255'],
+            'platformAbout' => ['nullable', 'string', 'max:1200'],
+            'contactEmail' => ['nullable', 'email', 'max:255'],
+            'contactPhone' => ['nullable', 'string', 'max:40'],
+            'contactAddress' => ['nullable', 'string', 'max:500'],
+            'supportHours' => ['nullable', 'string', 'max:255'],
+            'websiteUrl' => ['nullable', 'url', 'max:255'],
+            'facebookUrl' => ['nullable', 'url', 'max:255'],
             'defaultLanguage' => ['required', 'string', 'max:10', 'exists:languages,code'],
             'defaultCurrency' => ['required', 'string', 'max:10', 'exists:currencies,code'],
             'defaultTimezone' => ['required', 'string', 'max:50'],
@@ -82,6 +106,14 @@ class SystemSettings extends Component
 
         $map = [
             'platform_name' => $data['platformName'],
+            'platform_tagline' => $data['platformTagline'],
+            'platform_about' => $data['platformAbout'],
+            'contact_email' => $data['contactEmail'],
+            'contact_phone' => $data['contactPhone'],
+            'contact_address' => $data['contactAddress'],
+            'support_hours' => $data['supportHours'],
+            'website_url' => $data['websiteUrl'],
+            'facebook_url' => $data['facebookUrl'],
             'default_language' => $data['defaultLanguage'],
             'default_currency' => $data['defaultCurrency'],
             'default_timezone' => $data['defaultTimezone'],

@@ -41,23 +41,23 @@ class IspTeam extends Component
     {
         return [
             User::ROLE_TENANT_ADMIN => [
-                'label' => 'ISP Owner',
-                'description' => 'Owns this ISP workspace — full access including billing and team management.',
+                'label' => __('ISP Owner'),
+                'description' => __('Owns this ISP workspace — full access including billing and team management.'),
                 'fixed' => true,
             ],
             User::ROLE_FINANCE => [
-                'label' => 'Finance',
-                'description' => 'Records payments, verifies transfers and manages billing.',
+                'label' => __('Finance'),
+                'description' => __('Records payments, verifies transfers and manages billing.'),
                 'fixed' => false,
             ],
             User::ROLE_SUPPORT => [
-                'label' => 'Support',
-                'description' => 'Helps customers — tickets, problems and daily support work.',
+                'label' => __('Support'),
+                'description' => __('Helps customers — tickets, problems and daily support work.'),
                 'fixed' => false,
             ],
             User::ROLE_NETWORK_ENGINEER => [
-                'label' => 'Network engineer',
-                'description' => 'Operates the network — devices, cable map and connectivity.',
+                'label' => __('Network engineer'),
+                'description' => __('Operates the network — devices, cable map and connectivity.'),
                 'fixed' => false,
             ],
         ];
@@ -112,7 +112,7 @@ class IspTeam extends Component
             'enabled' => ! $enabled,
         ], tenantId: $tenant->id);
 
-        session()->flash('message', 'Permissions updated.');
+        session()->flash('message', __('Permissions updated.'));
     }
 
     public function save(): void
@@ -148,7 +148,7 @@ class IspTeam extends Component
         ], tenantId: $tenant->id);
 
         $this->closeAdd();
-        session()->flash('message', 'Team member added.');
+        session()->flash('message', __('Team member added.'));
     }
 
     public function toggleActive(int $userId): void
@@ -161,7 +161,7 @@ class IspTeam extends Component
 
         $user->update(['status' => $user->status === 'active' ? 'inactive' : 'active']);
         AuditLog::record('tenant.staff.status_changed', $user, ['status' => $user->status], tenantId: $tenant->id);
-        session()->flash('message', $user->status === 'active' ? 'Team member activated.' : 'Team member deactivated.');
+        session()->flash('message', $user->status === 'active' ? __('Team member activated.') : __('Team member deactivated.'));
     }
 
     public function remove(int $userId): void
@@ -174,7 +174,7 @@ class IspTeam extends Component
 
         AuditLog::record('tenant.staff.removed', $user, ['email' => $user->email], tenantId: $tenant->id);
         $user->delete();
-        session()->flash('message', 'Team member removed.');
+        session()->flash('message', __('Team member removed.'));
     }
 
     public function render()

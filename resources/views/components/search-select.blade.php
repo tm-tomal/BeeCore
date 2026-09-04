@@ -1,7 +1,8 @@
-@props(['wireKey' => null, 'options' => [], 'value' => '', 'placeholder' => __('Select an option'), 'searchable' => true, 'live' => false])
+@props(['wireKey' => null, 'options' => [], 'value' => '', 'placeholder' => __('Select an option'), 'searchable' => true, 'live' => false, 'id' => null])
 
 @php
     $rawOptions = collect($options);
+    $btnId = $id ?: ($wireKey ?? null);
     $prebuilt = $rawOptions->isNotEmpty() && $rawOptions->every(fn ($option) => is_array($option) && array_key_exists('value', $option) && array_key_exists('label', $option));
     $mappedOptions = $prebuilt
         ? $rawOptions->map(fn ($option) => ['value' => (string) $option['value'], 'label' => (string) $option['label']])->values()->all()
@@ -43,6 +44,7 @@
     <!-- Trigger -->
     <button
         type="button"
+        @if($btnId) id="{{ $btnId }}" @endif
         @click="open = !open"
         class="flex h-11 w-full items-center justify-between gap-2 rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-left text-theme-sm text-gray-800 shadow-theme-xs transition focus:border-brand-300 focus:ring-3 focus:ring-brand-500/10 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white/90"
     >

@@ -2,6 +2,58 @@
 
 @custom-variant dark (&:is(.dark *));
 
+/*
+ * Keep every Leaflet layer inside its own stacking island so a map never
+ * rises above the surrounding page (modals, sticky action bars, dropdowns).
+ * `contain: paint` also stops any tile/control from being drawn outside the
+ * map's own box — it can never cover the form fields or buttons beneath it.
+ */
+.leaflet-container {
+  position: relative !important;
+  z-index: 0 !important;
+  isolation: isolate !important;
+  overflow: hidden !important;
+  contain: paint;
+}
+.leaflet-container .leaflet-pane,
+.leaflet-container .leaflet-control-container {
+  isolation: isolate;
+}
+
+/* Map looks native to the BeeCore theme: white-ish in light, dark in dark. */
+.leaflet-container {
+  background: #eef2f6;
+}
+.dark .leaflet-container {
+  background: #0f172a;
+}
+.dark .leaflet-bar a {
+  background: #1e293b;
+  color: #e2e8f0;
+  border-bottom-color: #334155;
+}
+.dark .leaflet-bar a:hover {
+  background: #273449;
+}
+.dark .leaflet-control-attribution {
+  background: rgba(15, 23, 42, 0.8);
+  color: #94a3b8;
+}
+.dark .leaflet-control-attribution a {
+  color: #8ab4f8;
+}
+
+/* GPU-composited pan/zoom for an app-like, jank-free feel. */
+.leaflet-container {
+  -webkit-tap-highlight-color: transparent;
+}
+.leaflet-map-pane,
+.leaflet-tile-pane,
+.leaflet-overlay-pane,
+.leaflet-marker-pane {
+  will-change: transform;
+}
+
 @theme {
   --font-*: initial;
   --font-outfit: Outfit, sans-serif;

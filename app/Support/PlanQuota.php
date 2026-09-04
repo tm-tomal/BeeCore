@@ -126,6 +126,6 @@ class PlanQuota
 
     public static function label(string $kind): string
     {
-        return self::LABELS[$kind] ?? $kind;
+        return __(self::LABELS[$kind] ?? $kind);
     }
 }

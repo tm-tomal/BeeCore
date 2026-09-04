@@ -1,18 +1,30 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="{{ app()->getLocale() }}">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{{ __('Business report') }} — {{ $workspace->name }} ({{ $period['from'] }} → {{ $period['to'] }})</title>
+    @php
+        \Carbon\Carbon::setLocale(app()->getLocale());
+        $fromLabel = \Carbon\Carbon::parse($period['from'])->translatedFormat('j M Y');
+        $toLabel = \Carbon\Carbon::parse($period['to'])->translatedFormat('j M Y');
+        $nowLabel = now()->translatedFormat('j M Y, H:i');
+        $companyName = $workspace->company_legal_name ?: $workspace->name;
+        $phone = $workspace->contact_phone ?: $workspace->owner_phone;
+        $contactLine = collect([$workspace->contact_address, $phone ? __('Tel: :phone', ['phone' => $phone]) : null, $workspace->owner_email])->filter()->implode(' &nbsp;·&nbsp; ');
+        $currency = $workspace->currency ?: 'BDT';
+    @endphp
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
+        html, body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
         body {
             font-family: 'Segoe UI', -apple-system, 'Helvetica Neue', Arial, sans-serif;
-            background: #f3f4f6;
-            color: #111827;
-            -webkit-print-color-adjust: exact;
-            print-color-adjust: exact;
+            background: #eef1f5;
+            color: #1f2937;
+            font-size: 13px;
+            line-height: 1.45;
         }
+        /* ---- Screen toolbar (never printed) ---- */
         .toolbar {
             position: sticky; top: 0; z-index: 10;
             display: flex; align-items: center; justify-content: space-between; gap: 16px;
@@ -27,57 +39,93 @@
         }
         .toolbar .print-btn { background: #fff; color: #111827; }
         .toolbar .back-btn { background: transparent; color: #d1d5db; border: 1px solid #4b5563; }
+
+        /* ---- A4 sheet ---- */
         .sheet {
-            width: 840px; max-width: 100%;
-            margin: 24px auto; background: #fff; border: 1px solid #e5e7eb;
-            box-shadow: 0 10px 30px rgba(15, 23, 42, .07);
+            width: 210mm;
+            max-width: 100%;
+            margin: 18px auto;
+            background: #fff;
+            padding: 46px 48px 38px;
+            box-shadow: 0 12px 34px rgba(15, 23, 42, .08);
         }
-        .report-head {
-            padding: 34px 48px 24px;
-            display: flex; justify-content: space-between; gap: 24px; flex-wrap: wrap;
-            border-bottom: 1px solid #111827;
-        }
-        .brand .name { font-size: 20px; font-weight: 800; letter-spacing: -.01em; }
-        .brand .sub { font-size: 12px; color: #6b7280; margin-top: 4px; max-width: 420px; }
-        .doc { text-align: right; }
-        .doc .label { font-size: 11px; text-transform: uppercase; letter-spacing: .14em; color: #9ca3af; }
-        .doc .title { font-size: 22px; font-weight: 800; margin-top: 4px; }
-        .doc .meta { font-size: 12px; color: #6b7280; margin-top: 6px; }
-        .section { padding: 26px 48px 6px; }
-        .section h2 {
-            font-size: 11px; text-transform: uppercase; letter-spacing: .12em;
-            color: #111827; border-bottom: 1px solid #e5e7eb; padding-bottom: 8px; font-weight: 800;
-        }
-        table { width: 100%; border-collapse: collapse; margin-top: 12px; }
-        th {
-            text-align: left; font-size: 10px; text-transform: uppercase; letter-spacing: .1em;
-            color: #6b7280; padding: 8px 12px; border-bottom: 1px solid #111827;
-        }
-        td { padding: 10px 12px; border-bottom: 1px solid #f3f4f6; font-size: 13px; }
-        tr:last-child td { border-bottom: 0; }
-        td.num, th.num { text-align: right; }
-        .kpi-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 0; border: 1px solid #e5e7eb; margin-top: 14px; }
-        .kpi { padding: 16px; border-right: 1px solid #e5e7eb; }
-        .kpi:last-child { border-right: 0; }
-        .kpi .k-label { font-size: 10px; text-transform: uppercase; letter-spacing: .1em; color: #9ca3af; }
-        .kpi .k-value { font-size: 18px; font-weight: 800; margin-top: 6px; }
-        .kpi .k-sub { font-size: 11px; color: #6b7280; margin-top: 3px; }
-        .note { padding: 6px 48px 34px; font-size: 11px; color: #9ca3af; }
-        .note .line { border-top: 1px solid #e5e7eb; margin-bottom: 10px; }
-        .badge {
-            display: inline-block; padding: 2px 10px; border: 1px solid #111827;
-            border-radius: 999px; font-size: 11px; font-weight: 700; text-transform: capitalize;
-        }
+        .num { text-align: right; font-variant-numeric: tabular-nums; }
         .muted { color: #6b7280; }
-        @media print {
-            body { background: #fff; }
-            .toolbar { display: none; }
-            .sheet { width: 100%; margin: 0; border: 0; box-shadow: none; }
-            .section, .report-head, .note { padding-left: 8mm; padding-right: 8mm; }
-            .kpi-grid { break-inside: avoid; }
-            table { page-break-inside: auto; }
+
+        /* ---- Letterhead ---- */
+        .letterhead {
+            display: flex; justify-content: space-between; align-items: flex-start; gap: 28px;
+            padding-bottom: 14px;
+            border-bottom: 3px double #0f172a;
+        }
+        .lh-left { min-width: 0; padding-right: 16px; }
+        .company { font-size: 22px; font-weight: 800; letter-spacing: -.01em; color: #0f172a; }
+        .lh-line { margin-top: 3px; font-size: 11px; color: #6b7280; line-height: 1.55; }
+        .lh-right { text-align: right; flex-shrink: 0; }
+        .doc-type { font-size: 10px; font-weight: 700; letter-spacing: .2em; text-transform: uppercase; color: #64748b; }
+        .doc-range { margin-top: 6px; font-size: 18px; font-weight: 800; color: #0f172a; }
+        .doc-meta { margin-top: 4px; font-size: 11px; color: #6b7280; }
+
+        /* ---- Section blocks ---- */
+        .section { margin-top: 18px; }
+        .sec-title {
+            font-size: 10.5px; font-weight: 800; letter-spacing: .1em; text-transform: uppercase;
+            color: #0f172a; padding-bottom: 5px; margin-bottom: 7px;
+            border-bottom: 1px solid #0f172a;
+            display: flex; align-items: baseline; justify-content: space-between; gap: 12px;
+        }
+        .sec-title .hint { font-size: 10px; font-weight: 500; letter-spacing: .02em; text-transform: none; color: #9ca3af; }
+
+        /* ---- KPI strip (Excel-style bordered band) ---- */
+        .kpi-grid { display: grid; grid-template-columns: repeat(4, 1fr); border: 1px solid #cbd2dc; background: #fff; }
+        .kpi { padding: 10px 14px 11px; border-right: 1px solid #cbd2dc; }
+        .kpi + .kpi { border-left: 0; }
+        .kpi:last-child { border-right: 0; }
+        .k-label { font-size: 9.5px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: #7c8794; }
+        .k-value { margin-top: 3px; font-size: 17px; font-weight: 800; color: #0f172a; font-variant-numeric: tabular-nums; white-space: nowrap; }
+        .k-sub { margin-top: 2px; font-size: 10.5px; color: #8a94a3; }
+
+        /* ---- Data tables (grid-lined like printed spreadsheets) ---- */
+        table.data { width: 100%; border-collapse: collapse; font-size: 12px; }
+        table.data thead { display: table-header-group; }
+        table.data th {
+            background: #eef1f5; color: #475569; font-weight: 700;
+            font-size: 10px; letter-spacing: .06em; text-transform: uppercase;
+            border: 1px solid #cbd2dc; padding: 5px 10px; text-align: left; white-space: nowrap;
+        }
+        table.data td { border: 1px solid #d7dce4; padding: 5px 10px; vertical-align: middle; }
+        table.data tbody tr { page-break-inside: avoid; }
+        table.data tr.subtotal td, table.data tfoot td {
+            background: #f6f8fa; font-weight: 700; color: #111827;
+            border-top: 1.5px solid #94a3b8;
+        }
+        table.data tr.total td { background: #eef1f5; font-weight: 800; border-top: 1px solid #0f172a; }
+
+        .badge {
+            display: inline-block; padding: 1px 9px; border: 1px solid #cbd2dc; border-radius: 999px;
+            font-size: 10.5px; font-weight: 600; text-transform: capitalize; color: #334155;
+        }
+
+        /* ---- Footer ---- */
+        .foot {
+            margin-top: 22px; padding-top: 8px; border-top: 1px solid #d7dce4;
+            display: flex; justify-content: space-between; gap: 16px; flex-wrap: wrap;
+            font-size: 9.5px; color: #9ca3af;
+        }
+
+        @media (max-width: 700px) {
+            .kpi-grid { grid-template-columns: repeat(2, 1fr); }
+            .kpi:nth-child(2) { border-right: 0; }
+            .kpi:nth-child(n + 3) { border-top: 1px solid #cbd2dc; }
         }
         @page { size: A4; margin: 12mm; }
+        @media print {
+            body { background: #fff; }
+            .toolbar { display: none !important; }
+            .sheet { width: auto; margin: 0; padding: 0; box-shadow: none; }
+            .letterhead, .section, .foot { page-break-inside: avoid; }
+            table.data { page-break-inside: auto; }
+        }
     </style>
 </head>
 <body>
@@ -90,20 +138,25 @@
     </div>
 
     <main class="sheet">
-        <header class="report-head">
-            <div class="brand">
-                <div class="name">BeeCore — {{ $workspace->name }}</div>
-                <div class="sub">{{ __('ISP business report · Collections, invoicing, subscribers and operations snapshot.') }}</div>
+        <header class="letterhead">
+            <div class="lh-left">
+                <div class="company">{{ $companyName }}</div>
+                @if($contactLine)
+                    <div class="lh-line">{!! $contactLine !!}</div>
+                @endif
             </div>
-            <div class="doc">
-                <div class="label">{{ __('Business report') }}</div>
-                <div class="title">{{ $period['from'] }} – {{ $period['to'] }}</div>
-                <div class="meta">{{ __('Generated') }} {{ now()->format('d M Y, H:i') }}</div>
+            <div class="lh-right">
+                <div class="doc-type">{{ __('Business report') }}</div>
+                <div class="doc-range">{{ $fromLabel }} – {{ $toLabel }}</div>
+                <div class="doc-meta">{{ __('Generated') }} {{ $nowLabel }}</div>
             </div>
         </header>
 
         <section class="section">
-            <h2>{{ __('Summary') }}</h2>
+            <div class="sec-title">
+                <span>{{ __('Summary') }}</span>
+                <span class="hint">{{ __('Amounts in :currency', ['currency' => $currency]) }}</span>
+            </div>
             <div class="kpi-grid">
                 <div class="kpi">
                     <div class="k-label">{{ __('Collections') }}</div>
@@ -130,8 +183,11 @@
 
         @if($paymentMethods->isNotEmpty())
             <section class="section">
-                <h2>{{ __('Collections by method') }}</h2>
-                <table>
+                <div class="sec-title">
+                    <span>{{ __('Collections by method') }}</span>
+                    <span class="hint">{{ number_format($paymentMethods->count()) }} {{ __('method(s)') }}</span>
+                </div>
+                <table class="data">
                     <thead>
                         <tr>
                             <th>{{ __('Method') }}</th>
@@ -149,21 +205,30 @@
                                 <td class="num muted">{{ number_format($method['share'], 1) }}%</td>
                             </tr>
                         @endforeach
-                        <tr>
-                            <td class="muted">{{ __('Total') }}</td>
-                            <td class="num muted">{{ number_format($metrics['transactions']) }}</td>
-                            <td class="num">৳{{ number_format($metrics['collections'], 2) }}</td>
-                            <td class="num muted">100%</td>
-                        </tr>
                     </tbody>
+                    <tfoot>
+                        <tr>
+                            <td>{{ __('Total') }}</td>
+                            <td class="num">{{ number_format($metrics['transactions']) }}</td>
+                            <td class="num">৳{{ number_format($metrics['collections'], 2) }}</td>
+                            <td class="num">100%</td>
+                        </tr>
+                    </tfoot>
                 </table>
             </section>
         @endif
 
         @if(count($invoiceStatuses) > 0)
+            @php
+                $totalInvoices = collect($invoiceStatuses)->sum('count');
+                $totalValue = collect($invoiceStatuses)->sum('value');
+            @endphp
             <section class="section">
-                <h2>{{ __('Invoice status') }}</h2>
-                <table>
+                <div class="sec-title">
+                    <span>{{ __('Invoice status') }}</span>
+                    <span class="hint">{{ number_format($totalInvoices) }} {{ __('invoice(s)') }}</span>
+                </div>
+                <table class="data">
                     <thead>
                         <tr>
                             <th>{{ __('Status') }}</th>
@@ -180,14 +245,21 @@
                             </tr>
                         @endforeach
                     </tbody>
+                    <tfoot>
+                        <tr>
+                            <td>{{ __('Total') }}</td>
+                            <td class="num">{{ number_format($totalInvoices) }}</td>
+                            <td class="num">৳{{ number_format($totalValue, 2) }}</td>
+                        </tr>
+                    </tfoot>
                 </table>
             </section>
         @endif
 
-        <div class="note">
-            <div class="line"></div>
-            {{ __('Generated by BeeCore for :workspace. Figures cover :from to :to.', ['workspace' => $workspace->name, 'from' => $period['from'], 'to' => $period['to']]) }}
-        </div>
+        <footer class="foot">
+            <span>{{ __('Generated by BeeCore for :workspace. Figures cover :from to :to.', ['workspace' => $companyName, 'from' => $fromLabel, 'to' => $toLabel]) }}</span>
+            <span>BeeCore</span>
+        </footer>
     </main>
 </body>
 </html>

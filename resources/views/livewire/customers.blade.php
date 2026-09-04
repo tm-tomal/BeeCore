@@ -197,7 +197,7 @@
                 <div class="grid gap-4 sm:grid-cols-2">
                     <div>
                         <label for="customer-status" class="mb-1.5 block text-theme-sm font-medium text-gray-700 dark:text-gray-400">{{ __('Current status') }}<span class="ml-0.5 text-error-500">*</span></label>
-                        <x-search-select wireKey="status" :options="['active' => __('Active'), 'pending' => __('Pending'), 'inactive' => __('Inactive'), 'suspended' => __('Suspended')]" :value="$status" placeholder="{{ __('Select status') }}" :searchable="false" />
+                        <x-search-select id="customer-status" wireKey="status" :options="['active' => __('Active'), 'pending' => __('Pending'), 'inactive' => __('Inactive'), 'suspended' => __('Suspended')]" :value="$status" placeholder="{{ __('Select status') }}" :searchable="false" />
                         @error('status') <p class="mt-1.5 text-theme-xs text-error-600 dark:text-error-400">{{ $message }}</p> @enderror
                     </div>
                     <div class="flex items-start gap-3 rounded-lg border px-3.5 py-3 {{ $status === 'active' ? 'border-success-100 bg-success-50/70 dark:border-success-500/20 dark:bg-success-500/10' : 'border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-900' }}">
@@ -367,7 +367,7 @@
                             data-area-input="#customer-area"
                             data-city-input="#customer-city"
                             data-postcode-input="#customer-postcode"
-                            class="h-72 w-full overflow-hidden rounded-xl border border-gray-200 dark:border-gray-800"
+                            class="relative z-0 h-72 w-full overflow-hidden rounded-xl border border-gray-200 dark:border-gray-800"
                             aria-label="{{ __('Customer location map') }}"
                         ></div>
                     </div>
@@ -379,7 +379,7 @@
             </section>
 
             <!-- Actions -->
-            <div class="sticky bottom-4 flex flex-col-reverse gap-3 rounded-2xl border border-gray-200 bg-white/95 px-5 py-4 shadow-theme-lg backdrop-blur sm:flex-row sm:items-center sm:justify-between dark:border-gray-800 dark:bg-gray-900/95">
+            <div class="sticky bottom-4 z-40 flex flex-col-reverse gap-3 rounded-2xl border border-gray-200 bg-white/95 px-5 py-4 shadow-theme-lg backdrop-blur sm:flex-row sm:items-center sm:justify-between dark:border-gray-800 dark:bg-gray-900/95">
                 <p class="text-theme-xs text-gray-500 dark:text-gray-400">{{ __('Fields marked with') }} <span class="text-error-500">*</span> {{ __('are required.') }}</p>
                 <div class="flex flex-col-reverse gap-3 sm:flex-row">
                     <button type="button" wire:click="cancel" class="inline-flex items-center justify-center gap-2 rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-theme-sm font-medium text-gray-700 shadow-theme-xs transition hover:bg-gray-50 hover:text-gray-800 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-white/[0.03] dark:hover:text-gray-200">{{ __('Cancel') }}</button>
