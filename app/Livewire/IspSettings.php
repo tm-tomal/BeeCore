@@ -14,6 +14,8 @@ class IspSettings extends Component
 {
     use AuthorizesRoles;
 
+    public string $tab = 'company';
+
     public function boot(): void
     {
         $this->authorizeRoles(User::ROLE_SUPER_ADMIN, User::ROLE_TENANT_ADMIN);
