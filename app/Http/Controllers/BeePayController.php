@@ -17,6 +17,7 @@ use App\Models\TenantSubscription;
 use App\Models\TenantSubscriptionEvent;
 use App\Services\BkashGateway;
 use App\Services\SaasSubscriptionBilling;
+use App\Support\CurrentTenant;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
@@ -138,7 +139,7 @@ class BeePayController
 
         if ($intent->isSettled()) {
             // bKash sometimes re-delivers the callback; never settle twice.
-            return $this->resultView(true, 'Payment successful. Thank you!', $intent->merchant_invoice_number, $intent->bkash_trx_id);
+            return $this->resultView(true, 'Payment successful. Thank you!', $intent->merchant_invoice_number, $intent->bkash_trx_id, null, $this->successDestination($intent));
         }
 
         // Failed/cancelled on the bKash side: nothing was charged. Re-arm the intent.
@@ -197,7 +198,7 @@ class BeePayController
     public function check(BeePaymentIntent $intent, Request $request)
     {
         if ($intent->isSettled()) {
-            return $this->resultView(true, 'Payment successful. Thank you!', $intent->merchant_invoice_number, $intent->bkash_trx_id);
+            return $this->resultView(true, 'Payment successful. Thank you!', $intent->merchant_invoice_number, $intent->bkash_trx_id, null, $this->successDestination($intent));
         }
 
         if (! $intent->bkash_payment_id) {
@@ -236,10 +237,10 @@ class BeePayController
             $this->settle($intent, $trxID);
         });
 
-        return $this->resultView(true, 'Payment successful. Thank you!', $intent->merchant_invoice_number, $trxID);
+        return $this->resultView(true, 'Payment successful. Thank you!', $intent->merchant_invoice_number, $trxID, null, $this->successDestination($intent));
     }
 
-    private function resultView(bool $ok, string $message, ?string $reference = null, ?string $trxID = null, ?string $retryToken = null)
+    private function resultView(bool $ok, string $message, ?string $reference = null, ?string $trxID = null, ?string $retryToken = null, ?string $redirectUrl = null)
     {
         return view('bee-pay.result', [
             'ok' => $ok,
@@ -247,7 +248,27 @@ class BeePayController
             'reference' => $reference,
             'trxID' => $trxID,
             'retryUrl' => $retryToken ? route('bee-pay.intent', ['intent' => $retryToken]) : null,
+            'redirectUrl' => $redirectUrl,
         ]);
+    }
+
+    /**
+     * Where a paid customer should land after the callback. SaaS checkouts made
+     * inside a workspace bounce straight back to that workspace page (plan or
+     * add-ons); public payments (customer invoice links, unauthenticated
+     * sessions) fall back to the BeeCore payment status page.
+     */
+    private function successDestination(BeePaymentIntent $intent): string
+    {
+        $tenant = app(CurrentTenant::class)->resolve();
+
+        if ($tenant && $tenant->id === $intent->tenant_id && $intent->kind !== BeePaymentIntent::KIND_INVOICE) {
+            return $intent->kind === BeePaymentIntent::KIND_SAAS_ADDON
+                ? route('isp-addons')
+                : route('isp-subscription');
+        }
+
+        return route('bee-pay.intent', ['intent' => $intent->token]);
     }
 
     private function settle(BeePaymentIntent $intent, string $trxID): void

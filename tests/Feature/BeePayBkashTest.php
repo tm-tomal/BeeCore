@@ -473,6 +473,39 @@ class BeePayBkashTest extends TestCase
         $this->assertSame('700.00', $intent->fresh()->amount);
     }
 
+    public function test_successful_callback_redirects_a_tenant_admin_back_to_their_workspace(): void
+    {
+        $this->fakeBkash();
+        $this->gateway();
+        $tenant = $this->tenant('bkash-redirect-isp');
+        $admin = \App\Models\User::factory()->create(['tenant_id' => $tenant->id, 'role' => \App\Models\User::ROLE_TENANT_ADMIN]);
+
+        $plan = SaasPlan::create([
+            'name' => 'Starter', 'slug' => 'bkash-redirect-plan', 'monthly_price' => 2500, 'yearly_price' => 25000,
+            'customer_limit' => 300, 'is_active' => true, 'operation_mode' => 'manual',
+        ]);
+
+        $intent = BeePaymentIntent::createFor(BeePaymentIntent::KIND_SAAS_PLAN, $tenant->id, 2500, [
+            'deferred' => true, 'saas_plan_id' => $plan->id, 'billing_cycle' => 'monthly',
+        ]);
+        $intent->update(['status' => 'processing', 'bkash_payment_id' => 'PAYID-001']);
+
+        // The tenant admin pays from inside their workspace — after success the
+        // callback page bounces them straight back to their subscription page.
+        $this->actingAs($admin)
+            ->get(route('bee-pay.callback', ['paymentID' => 'PAYID-001', 'status' => 'success']))
+            ->assertOk()
+            ->assertSee('Payment successful')
+            ->assertSee('Redirecting in')
+            ->assertSee(route('isp-subscription'));
+
+        // An unauthenticated payer (e.g. a shared customer invoice link) lands
+        // back on the public BeeCore payment status page instead.
+        $this->get(route('bee-pay.intent', ['intent' => $intent->token]))
+            ->assertOk()
+            ->assertSee('already completed');
+    }
+
     public function test_admin_connection_test_hits_the_real_bkash_token_endpoint(): void
     {
         Http::fake([

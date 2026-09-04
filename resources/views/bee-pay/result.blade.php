@@ -30,6 +30,13 @@
                     <a href="{{ $retryUrl }}" class="mt-6 inline-flex items-center justify-center gap-2 rounded-lg bg-pink-500 px-6 py-3 text-theme-sm font-semibold text-white shadow-theme-xs transition hover:bg-pink-600">
                         Try again
                     </a>
+                @elseif(! empty($redirectUrl))
+                    <p id="redirect-hint" class="mt-6 text-theme-xs text-gray-400 dark:text-gray-500">
+                        Redirecting in <span id="redirect-seconds">4</span> seconds…
+                    </p>
+                    <a href="{{ $redirectUrl }}" class="mt-6 inline-flex items-center justify-center gap-2 rounded-lg bg-pink-500 px-6 py-3 text-theme-sm font-semibold text-white shadow-theme-xs transition hover:bg-pink-600">
+                        Continue
+                    </a>
                 @elseif($ok)
                     <p class="mt-6 text-theme-xs text-gray-400 dark:text-gray-500">You can close this window — the merchant has been notified.</p>
                 @else
@@ -39,5 +46,21 @@
                 @endif
             </div>
         </div>
+
+        @if(! empty($redirectUrl))
+            <script>
+                const redirectUrl = @json($redirectUrl);
+                const seconds = document.getElementById('redirect-seconds');
+                let remaining = 4;
+                const timer = setInterval(() => {
+                    remaining -= 1;
+                    if (seconds) seconds.textContent = remaining;
+                    if (remaining <= 0) {
+                        clearInterval(timer);
+                        window.location.assign(redirectUrl);
+                    }
+                }, 1000);
+            </script>
+        @endif
     </body>
 </html>
