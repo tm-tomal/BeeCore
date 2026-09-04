@@ -19,7 +19,7 @@ const beeThemeMode = () => (localStorage.getItem('beecore_theme') === 'dark' ? '
 
 // Google Maps (rich data) powers the basemap. A public browser key is used —
 // the Maps JavaScript API is loaded lazily only when a BeeCore map is on page.
-const GOOGLE_MAPS_KEY = 'AIzaSyBofrHFIF3UDYAgl2UCl_DeosPwH1mQbnI';
+const GOOGLE_MAPS_KEY = 'AIzaSyDRGZ-1bc-Wv_OE4Twl1ASBztMloL8nH5w';
 
 // "Dark mode" is done with Google styled-map rules (same roadmap, dark paint).
 const beeGoogleDarkStyles = [
